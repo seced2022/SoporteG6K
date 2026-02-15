@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Dirección de Carrera</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<style>
+body { background:#000; color:#00ff66; font-family:Arial; }
+h1,h2 { text-align:center; }
+
+.menu-btn {
+  background: linear-gradient(145deg, #0f3d00, #021a00);
+  color:#00ff66;
+  border:2px solid #00ff66;
+  border-radius:25px;
+  padding:8px 18px;
+  cursor:pointer;
+  margin:5px;
+}
+
+.menu-btn:hover { background:#00aa44; color:#000; }
+
+input,select {
+  padding:5px;
+  margin:3px;
+  font-size:12px;
+}
+
+table {
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+  font-size:12px;
+}
+
+th,td {
+  border:1px solid #00aa44;
+  padding:4px;
+  text-align:center;
+}
+
+th { background:#003300; }
+
+.section { display:none; }
+</style>
+</head>
+
+<body>
+
+<h1>🏁 DIRECCIÓN DE CARRERA</h1>
+
+<div style="text-align:center;">
+<select id="selectorID" onchange="cambiarID()">
+<option>Cargando IDs...</option>
+</select>
+</div>
+
+<div style="text-align:center; margin:10px;">
+<button class="menu-btn" onclick="mostrarCrearRally()">➕ Crear Rally</button>
+<button class="menu-btn" onclick="mostrarInscritos()">🧾 Inscritos</button>
+<button class="menu-btn" onclick="mostrarTiempos()">⏱ Tiempos</button>
+</div>
+
+<!-- ================= CREAR RALLY ================= -->
+
+<div id="seccionCrearRally" class="section">
+<h2>➕ Crear Nuevo Rally</h2>
+<div style="text-align:center;">
+<input id="nuevoID" placeholder="Nombre ID (Ej: ID010)">
+<input type="number" id="numTramos" placeholder="Número de Tramos" min="1">
+<button class="menu-btn" onclick="crearRally()">Confirmar y Crear</button>
+</div>
+</div>
+
+<!-- ================= INSCRITOS ================= -->
+
+<div id="seccionInscritos" class="section">
+
+<h2>🧾 Gestión de Inscritos</h2>
+
+<div style="text-align:center;">
+<input id="dorsalInput" placeholder="Nº">
+<input id="concursanteInput" placeholder="Concursante">
+<input id="pilotoInput" placeholder="Piloto">
+<input id="copilotoInput" placeholder="Copiloto">
+<input id="vehiculoInput" placeholder="Vehículo">
+<input id="grceraInput" placeholder="GR.CERA">
+<input id="catceraInput" placeholder="CAT.CERA">
+<input id="grcaraInput" placeholder="GR.CARA">
+<input id="catcaraInput" placeholder="CAT.CARA">
+<input id="traccionInput" placeholder="Tracción">
+<input id="trofeoInput" placeholder="Trofeo">
+<input id="prioridadInput" placeholder="Prioridad">
+<br>
+<button class="menu-btn" onclick="guardarInscrito()">Guardar / Actualizar</button>
+</div>
+
+<div style="text-align:center; margin-top:8px;">
+<input type="text" id="buscadorInscritos"
+placeholder="🔎 Buscar dorsal, piloto, copiloto, vehículo..."
+onkeyup="filtrarInscritos()" style="width:60%;">
+</div>
+
+<table id="tablaInscritos">
+<thead>
+<tr>
+<th>Nº</th><th>Concursante</th><th>Piloto</th><th>Copiloto</th>
+<th>Vehículo</th><th>GR.CERA</th><th>CAT.CERA</th>
+<th>GR.CARA</th><th>CAT.CARA</th><th>Tracción</th>
+<th>Trofeo</th><th>Prioridad</th><th>Editar</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+</div>
+
+<!-- ================= TIEMPOS ================= -->
+
+<div id="seccionTiempos" class="section">
+
+<h2>⏱ Clasificación por Tramo</h2>
+
+<div style="text-align:center;">
+<select id="selectorTramo" onchange="actualizarTabla()">
+<option value="TODOS">-- TODOS LOS TRAMOS --</option>
+</select>
+</div>
+
+<table id="tabla">
+<thead>
+<tr>
+<th>Nº</th>
+<th>Piloto</th>
+<th>Copiloto</th>
+<th>Tiempo</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+</div>
+
+<script>
+
+var firebaseConfig={
+databaseURL:"https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app"
+};
+
+firebase.initializeApp(firebaseConfig);
+var database=firebase.database();
+
+var inscritosRef=null;
+var tiemposRef=null;
+var inscritos={};
+var datosProcesados={};
+var tramosDisponibles=new Set();
+
+function ocultarTodo(){
+document.querySelectorAll(".section").forEach(s=>s.style.display="none");
+}
+function mostrarCrearRally(){ ocultarTodo(); document.getElementById("seccionCrearRally").style.display="block"; }
+function mostrarInscritos(){ ocultarTodo(); document.getElementById("seccionInscritos").style.display="block"; }
+function mostrarTiempos(){ ocultarTodo(); document.getElementById("seccionTiempos").style.display="block"; }
+
+database.ref("IDs").on("value",function(snapshot){
+var data=snapshot.val();
+if(!data)return;
+var select=document.getElementById("selectorID");
+select.innerHTML="";
+Object.keys(data).forEach(function(idKey){
+var option=document.createElement("option");
+option.value=idKey;
+option.textContent=idKey;
+select.appendChild(option);
+});
+if(select.options.length>0){
+select.selectedIndex=0;
+cambiarID();
+}
+});
+
+function cambiarID(){
+
+var id=document.getElementById("selectorID").value;
+
+if(inscritosRef)inscritosRef.off();
+if(tiemposRef)tiemposRef.off();
+
+inscritosRef=database.ref("IDs/"+id+"/inscritos");
+inscritosRef.on("value",function(snapshot){
+inscritos=snapshot.val()||{};
+actualizarTablaInscritos();
+actualizarTabla();
+});
+
+tiemposRef=database.ref("IDs/"+id+"/tramos");
+tiemposRef.on("value",procesarDatos);
+}
+
+function procesarDatos(snapshot){
+
+var data=snapshot.val();
+datosProcesados={};
+tramosDisponibles.clear();
+
+if(!data)return actualizarTabla();
+
+Object.keys(data).forEach(function(tramoKey){
+
+tramosDisponibles.add(tramoKey);
+var tramo=data[tramoKey];
+if(!tramo.puestos)return;
+
+Object.keys(tramo.puestos).forEach(function(puestoKey){
+
+var puesto=tramo.puestos[puestoKey];
+if(!puesto.tiempos)return;
+
+Object.values(puesto.tiempos).forEach(function(registro){
+
+var dorsal=registro.dorsal;
+var hora=registro.tiempo;
+var tipo=registro.puesto;
+
+if(!dorsal||!hora||(tipo!=="S"&&tipo!=="LL"))return;
+
+if(!datosProcesados[tramoKey])
+datosProcesados[tramoKey]={};
+
+if(!datosProcesados[tramoKey][dorsal])
+datosProcesados[tramoKey][dorsal]={S:null,LL:null};
+
+datosProcesados[tramoKey][dorsal][tipo]=hora;
+
+});
+
+});
+
+});
+
+actualizarSelectorTramos();
+actualizarTabla();
+}
+
+function actualizarSelectorTramos(){
+var select=document.getElementById("selectorTramo");
+var actual=select.value;
+select.innerHTML='<option value="TODOS">-- TODOS LOS TRAMOS --</option>';
+tramosDisponibles.forEach(function(tramo){
+var option=document.createElement("option");
+option.value=tramo;
+option.textContent=tramo;
+select.appendChild(option);
+});
+if(actual)select.value=actual;
+}
+
+function actualizarTabla(){
+
+var tbody=document.querySelector("#tabla tbody");
+tbody.innerHTML="";
+
+var tramoSeleccionado=document.getElementById("selectorTramo").value;
+var filas=[];
+
+Object.keys(datosProcesados).forEach(function(tramo){
+
+if(tramoSeleccionado!=="TODOS"&&tramo!==tramoSeleccionado)
+return;
+
+Object.keys(datosProcesados[tramo]).forEach(function(dorsal){
+
+var salida=datosProcesados[tramo][dorsal].S;
+var llegada=datosProcesados[tramo][dorsal].LL;
+if(!salida||!llegada)return;
+
+var t1=new Date("1970-01-01T"+salida);
+var t2=new Date("1970-01-01T"+llegada);
+var diff=t2-t1;
+if(diff<0)return;
+
+filas.push({dorsal:dorsal,tiempoMS:diff});
+
+});
+});
+
+filas.sort((a,b)=>a.tiempoMS-b.tiempoMS);
+
+filas.forEach(function(f){
+
+var piloto=inscritos[f.dorsal]?.piloto||"-";
+var copiloto=inscritos[f.dorsal]?.copiloto||"-";
+
+var diff=f.tiempoMS;
+var ms=diff%1000;
+diff=Math.floor(diff/1000);
+var s=diff%60;
+diff=Math.floor(diff/60);
+var m=diff%60;
+var h=Math.floor(diff/60);
+
+var tiempo=
+String(h).padStart(2,"0")+":"+
+String(m).padStart(2,"0")+":"+
+String(s).padStart(2,"0")+"."+
+String(ms).padStart(3,"0");
+
+var fila=document.createElement("tr");
+fila.innerHTML=`
+<td>${f.dorsal}</td>
+<td>${piloto}</td>
+<td>${copiloto}</td>
+<td><strong>${tiempo}</strong></td>
+`;
+tbody.appendChild(fila);
+
+});
+}
+
+function guardarInscrito(){
+
+var id=document.getElementById("selectorID").value;
+var dorsal=document.getElementById("dorsalInput").value.trim();
+if(!dorsal)return alert("Introduce Nº");
+
+database.ref("IDs/"+id+"/inscritos/"+dorsal).set({
+concursante:document.getElementById("concursanteInput").value,
+piloto:document.getElementById("pilotoInput").value,
+copiloto:document.getElementById("copilotoInput").value,
+vehiculo:document.getElementById("vehiculoInput").value,
+gr_cera:document.getElementById("grceraInput").value,
+cat_cera:document.getElementById("catceraInput").value,
+gr_cara:document.getElementById("grcaraInput").value,
+cat_cara:document.getElementById("catcaraInput").value,
+traccion:document.getElementById("traccionInput").value,
+trofeo:document.getElementById("trofeoInput").value,
+prioridad:document.getElementById("prioridadInput").value
+});
+
+document.querySelectorAll("#seccionInscritos input").forEach(i=>i.value="");
+}
+
+function filtrarInscritos(){
+var filtro=document.getElementById("buscadorInscritos").value.toLowerCase();
+document.querySelectorAll("#tablaInscritos tbody tr").forEach(function(f){
+var texto=f.innerText.toLowerCase();
+f.style.display=texto.includes(filtro)?"":"none";
+});
+}
+
+function actualizarTablaInscritos(){
+
+var tbody=document.querySelector("#tablaInscritos tbody");
+tbody.innerHTML="";
+
+Object.keys(inscritos).forEach(function(dorsal){
+
+var d=inscritos[dorsal];
+var fila=document.createElement("tr");
+
+fila.innerHTML=`
+<td>${dorsal}</td>
+<td>${d.concursante||""}</td>
+<td>${d.piloto||""}</td>
+<td>${d.copiloto||""}</td>
+<td>${d.vehiculo||""}</td>
+<td>${d.gr_cera||""}</td>
+<td>${d.cat_cera||""}</td>
+<td>${d.gr_cara||""}</td>
+<td>${d.cat_cara||""}</td>
+<td>${d.traccion||""}</td>
+<td>${d.trofeo||""}</td>
+<td>${d.prioridad||""}</td>
+<td><button onclick="editar('${dorsal}')">Editar</button></td>
+`;
+tbody.appendChild(fila);
+
+});
+}
+
+function editar(dorsal){
+var d=inscritos[dorsal];
+document.getElementById("dorsalInput").value=dorsal;
+document.getElementById("concursanteInput").value=d.concursante||"";
+document.getElementById("pilotoInput").value=d.piloto||"";
+document.getElementById("copilotoInput").value=d.copiloto||"";
+document.getElementById("vehiculoInput").value=d.vehiculo||"";
+document.getElementById("grceraInput").value=d.gr_cera||"";
+document.getElementById("catceraInput").value=d.cat_cera||"";
+document.getElementById("grcaraInput").value=d.gr_cara||"";
+document.getElementById("catcaraInput").value=d.cat_cara||"";
+document.getElementById("traccionInput").value=d.traccion||"";
+document.getElementById("trofeoInput").value=d.trofeo||"";
+document.getElementById("prioridadInput").value=d.prioridad||"";
+}
+
+function crearRally(){
+
+var id=document.getElementById("nuevoID").value.trim();
+var num=parseInt(document.getElementById("numTramos").value);
+
+if(!id||!num||num<1){
+alert("Introduce ID y número de tramos válido");
+return;
+}
+
+// Comprobar si ya existe
+database.ref("IDs/"+id).once("value").then(function(snapshot){
+
+if(snapshot.exists()){
+alert("Ese ID ya existe");
+throw new Error("ID existente");
+}
+
+var estructura={
+inscritos:{},
+tramos:{}
+};
+
+for(let i=1;i<=num;i++){
+estructura.tramos["TC"+i]={
+puestos:{
+S:{tiempos:{}},
+LL:{tiempos:{}}
+}
+};
+}
+
+// Crear en Firebase
+return database.ref("IDs/"+id).set(estructura);
+
+})
+.then(function(){
+
+alert("Rally creado correctamente");
+
+// Limpiar formulario
+document.getElementById("nuevoID").value="";
+document.getElementById("numTramos").value="";
+
+// NO añadimos manualmente al selector
+// El listener de IDs lo detectará automáticamente
+
+})
+.catch(function(error){
+
+if(error.message==="ID existente") return;
+
+console.error("ERROR REAL:", error);
+alert("Error al crear rally. Revisa consola.");
+
+});
+}
+
+
+mostrarTiempos();
+
+</script>
+
+</body>
+</html>

@@ -4,10 +4,6 @@
 <meta charset="UTF-8">
 <title>Dirección de Carrera</title>
 
-<!-- Firebase COMPAT (misma forma de usar firebase.* pero más moderno y fiable en web hosteada) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-
 <style>
 body { background:#000; color:#00ff66; font-family:Arial; }
 h1,h2 { text-align:center; }
@@ -54,15 +50,15 @@ th { background:#003300; }
 <h1>🏁 DIRECCIÓN DE CARRERA</h1>
 
 <div style="text-align:center;">
-  <select id="selectorID" onchange="cambiarID()">
+  <select id="selectorID">
     <option>Cargando IDs...</option>
   </select>
 </div>
 
 <div style="text-align:center; margin:10px;">
-  <button class="menu-btn" onclick="mostrarCrearRally()">➕ Crear Rally</button>
-  <button class="menu-btn" onclick="mostrarInscritos()">🧾 Inscritos</button>
-  <button class="menu-btn" onclick="mostrarTiempos()">⏱ Tiempos</button>
+  <button class="menu-btn" id="btnCrear">➕ Crear Rally</button>
+  <button class="menu-btn" id="btnInscritos">🧾 Inscritos</button>
+  <button class="menu-btn" id="btnTiempos">⏱ Tiempos</button>
 </div>
 
 <!-- ================= CREAR RALLY ================= -->
@@ -71,7 +67,7 @@ th { background:#003300; }
   <div style="text-align:center;">
     <input id="nuevoID" placeholder="Nombre ID (Ej: ID010)">
     <input type="number" id="numTramos" placeholder="Número de Tramos" min="1">
-    <button class="menu-btn" onclick="crearRally()">Confirmar y Crear</button>
+    <button class="menu-btn" id="btnConfirmarCrear">Confirmar y Crear</button>
   </div>
 </div>
 
@@ -94,13 +90,13 @@ th { background:#003300; }
     <input id="trofeoInput" placeholder="Trofeo">
     <input id="prioridadInput" placeholder="Prioridad">
     <br>
-    <button class="menu-btn" onclick="guardarInscrito()">Guardar / Actualizar</button>
+    <button class="menu-btn" id="btnGuardarInscrito">Guardar / Actualizar</button>
   </div>
 
   <div style="text-align:center; margin-top:8px;">
     <input type="text" id="buscadorInscritos"
-      placeholder="🔎 Buscar dorsal, piloto, copiloto, vehículo..."
-      onkeyup="filtrarInscritos()" style="width:60%;">
+           placeholder="🔎 Buscar dorsal, piloto, copiloto, vehículo..."
+           style="width:60%;">
   </div>
 
   <table id="tablaInscritos">
@@ -123,7 +119,7 @@ th { background:#003300; }
   <h2>⏱ Clasificación por Tramo</h2>
 
   <div style="text-align:center;">
-    <select id="selectorTramo" onchange="actualizarTabla()">
+    <select id="selectorTramo">
       <option value="TODOS">-- TODOS LOS TRAMOS --</option>
     </select>
   </div>
@@ -142,109 +138,124 @@ th { background:#003300; }
 
 </div>
 
-<script>
-// ✅ CONFIG COMPLETA (TUYA)
-var firebaseConfig = {
+<!-- ================= JS (MODULAR, PERO SIN CAMBIAR TU UI) ================= -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getDatabase, ref, onValue, get, set
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// ✅ TU CONFIG (MODULAR)
+const firebaseConfig = {
   apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
   authDomain: "heideggerp6v2.firebaseapp.com",
   databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "heideggerp6v2",
-  storageBucket: "heideggerp6v2.firebasestorage.app",
+  storageBucket: "heideggerp6v2.appspot.com",
   messagingSenderId: "186503733",
   appId: "1:186503733:web:ac4e03f579a8e101f5177c"
 };
 
-firebase.initializeApp(firebaseConfig);
-var database = firebase.database();
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-// ====== VARIABLES ======
-var inscritosRef=null;
-var tiemposRef=null;
-var inscritos={};
-var datosProcesados={};
-var tramosDisponibles=new Set();
+// ================== ESTADO (igual que antes) ==================
+let inscritos = {};
+let datosProcesados = {};
+let tramosDisponibles = new Set();
 
-// ====== SECCIONES ======
+let unsubInscritos = null;
+let unsubTiempos = null;
+
+const $ = (id) => document.getElementById(id);
+
+// ================== UI ==================
 function ocultarTodo(){
-  document.querySelectorAll(".section").forEach(s=>s.style.display="none");
+  document.querySelectorAll(".section").forEach(s => s.style.display="none");
 }
-function mostrarCrearRally(){ ocultarTodo(); document.getElementById("seccionCrearRally").style.display="block"; }
-function mostrarInscritos(){ ocultarTodo(); document.getElementById("seccionInscritos").style.display="block"; }
-function mostrarTiempos(){ ocultarTodo(); document.getElementById("seccionTiempos").style.display="block"; }
+function mostrarCrearRally(){ ocultarTodo(); $("seccionCrearRally").style.display="block"; }
+function mostrarInscritos(){ ocultarTodo(); $("seccionInscritos").style.display="block"; }
+function mostrarTiempos(){ ocultarTodo(); $("seccionTiempos").style.display="block"; }
 
-// ====== CARGAR IDS ======
-database.ref("IDs").on("value",function(snapshot){
-  var data=snapshot.val();
+$("btnCrear").addEventListener("click", mostrarCrearRally);
+$("btnInscritos").addEventListener("click", mostrarInscritos);
+$("btnTiempos").addEventListener("click", mostrarTiempos);
+
+// ================== CARGAR IDS ==================
+const selectorID = $("selectorID");
+let currentID = null;
+
+onValue(ref(db, "IDs"), (snap) => {
+  const data = snap.val();
   if(!data) return;
 
-  var select=document.getElementById("selectorID");
-  var actual = select.value; // intentar mantener selección
-  select.innerHTML="";
+  const prev = selectorID.value;
+  selectorID.innerHTML = "";
 
-  Object.keys(data).forEach(function(idKey){
-    var option=document.createElement("option");
-    option.value=idKey;
-    option.textContent=idKey;
-    select.appendChild(option);
+  Object.keys(data).forEach((idKey) => {
+    const opt = document.createElement("option");
+    opt.value = idKey;
+    opt.textContent = idKey;
+    selectorID.appendChild(opt);
   });
 
-  // mantener el ID seleccionado si existe, si no el primero
-  if (actual && data[actual]) {
-    select.value = actual;
-  } else if(select.options.length>0){
-    select.selectedIndex=0;
-  }
+  // Mantener selección si existe
+  if (prev && data[prev]) selectorID.value = prev;
+  else selectorID.selectedIndex = 0;
 
-  cambiarID();
+  cambiarID(); // recargar listeners al ID elegido
 });
 
-// ====== CAMBIAR ID ======
+// ================== CAMBIAR ID ==================
+selectorID.addEventListener("change", cambiarID);
+
 function cambiarID(){
-  var id=document.getElementById("selectorID").value;
+  const id = selectorID.value;
   if(!id) return;
+  currentID = id;
 
-  if(inscritosRef)inscritosRef.off();
-  if(tiemposRef)tiemposRef.off();
+  // cortar listeners previos
+  if (typeof unsubInscritos === "function") unsubInscritos();
+  if (typeof unsubTiempos === "function") unsubTiempos();
 
-  inscritosRef=database.ref("IDs/"+id+"/inscritos");
-  inscritosRef.on("value",function(snapshot){
-    inscritos=snapshot.val()||{};
+  unsubInscritos = onValue(ref(db, `IDs/${id}/inscritos`), (snap) => {
+    inscritos = snap.val() || {};
     actualizarTablaInscritos();
-    actualizarTabla();
+    actualizarTabla(); // por si cambia piloto/copiloto
   });
 
-  tiemposRef=database.ref("IDs/"+id+"/tramos");
-  tiemposRef.on("value",procesarDatos);
+  unsubTiempos = onValue(ref(db, `IDs/${id}/tramos`), (snap) => {
+    procesarDatos(snap.val());
+  });
 }
 
-// ====== PROCESAR TIEMPOS ======
-function procesarDatos(snapshot){
-  var data=snapshot.val();
-  datosProcesados={};
+// ================== PROCESAR TIEMPOS (igual lógica) ==================
+function procesarDatos(data){
+  datosProcesados = {};
   tramosDisponibles.clear();
 
   if(!data){ actualizarTabla(); return; }
 
-  Object.keys(data).forEach(function(tramoKey){
+  Object.keys(data).forEach((tramoKey) => {
     tramosDisponibles.add(tramoKey);
-    var tramo=data[tramoKey];
+    const tramo = data[tramoKey];
     if(!tramo || !tramo.puestos) return;
 
-    Object.keys(tramo.puestos).forEach(function(puestoKey){
-      var puesto=tramo.puestos[puestoKey];
+    Object.keys(tramo.puestos).forEach((puestoKey) => {
+      const puesto = tramo.puestos[puestoKey];
       if(!puesto || !puesto.tiempos) return;
 
-      Object.values(puesto.tiempos).forEach(function(registro){
-        var dorsal=registro.dorsal;
-        var hora=registro.tiempo;
-        var tipo=registro.puesto;
+      Object.values(puesto.tiempos).forEach((registro) => {
+        const dorsal = registro.dorsal;
+        const hora = registro.tiempo;
+        const tipo = registro.puesto;
 
-        if(!dorsal||!hora||(tipo!=="S"&&tipo!=="LL")) return;
+        if(!dorsal || !hora || (tipo !== "S" && tipo !== "LL")) return;
 
-        if(!datosProcesados[tramoKey]) datosProcesados[tramoKey]={};
-        if(!datosProcesados[tramoKey][dorsal]) datosProcesados[tramoKey][dorsal]={S:null,LL:null};
+        if(!datosProcesados[tramoKey]) datosProcesados[tramoKey] = {};
+        if(!datosProcesados[tramoKey][dorsal]) datosProcesados[tramoKey][dorsal] = { S:null, LL:null };
 
-        datosProcesados[tramoKey][dorsal][tipo]=hora;
+        datosProcesados[tramoKey][dorsal][tipo] = hora;
       });
     });
   });
@@ -253,118 +264,123 @@ function procesarDatos(snapshot){
   actualizarTabla();
 }
 
-// ====== SELECTOR TRAMOS ======
-function actualizarSelectorTramos(){
-  var select=document.getElementById("selectorTramo");
-  var actual=select.value;
+// ================== SELECTOR TRAMOS ==================
+$("selectorTramo").addEventListener("change", actualizarTabla);
 
-  select.innerHTML='<option value="TODOS">-- TODOS LOS TRAMOS --</option>';
-  tramosDisponibles.forEach(function(tramo){
-    var option=document.createElement("option");
-    option.value=tramo;
-    option.textContent=tramo;
-    select.appendChild(option);
+function actualizarSelectorTramos(){
+  const select = $("selectorTramo");
+  const actual = select.value;
+
+  select.innerHTML = '<option value="TODOS">-- TODOS LOS TRAMOS --</option>';
+  tramosDisponibles.forEach((tramo) => {
+    const opt = document.createElement("option");
+    opt.value = tramo;
+    opt.textContent = tramo;
+    select.appendChild(opt);
   });
 
-  if(actual) select.value=actual;
+  if(actual) select.value = actual;
 }
 
-// ====== TABLA TIEMPOS ======
+// ================== TABLA TIEMPOS ==================
 function actualizarTabla(){
-  var tbody=document.querySelector("#tabla tbody");
-  tbody.innerHTML="";
+  const tbody = document.querySelector("#tabla tbody");
+  tbody.innerHTML = "";
 
-  var tramoSeleccionado=document.getElementById("selectorTramo").value;
-  var filas=[];
+  const tramoSeleccionado = $("selectorTramo").value;
+  const filas = [];
 
-  Object.keys(datosProcesados).forEach(function(tramo){
-    if(tramoSeleccionado!=="TODOS" && tramo!==tramoSeleccionado) return;
+  Object.keys(datosProcesados).forEach((tramo) => {
+    if(tramoSeleccionado !== "TODOS" && tramo !== tramoSeleccionado) return;
 
-    Object.keys(datosProcesados[tramo]).forEach(function(dorsal){
-      var salida=datosProcesados[tramo][dorsal].S;
-      var llegada=datosProcesados[tramo][dorsal].LL;
-      if(!salida||!llegada) return;
+    Object.keys(datosProcesados[tramo]).forEach((dorsal) => {
+      const salida = datosProcesados[tramo][dorsal].S;
+      const llegada = datosProcesados[tramo][dorsal].LL;
+      if(!salida || !llegada) return;
 
-      var t1=new Date("1970-01-01T"+salida);
-      var t2=new Date("1970-01-01T"+llegada);
-      var diff=t2-t1;
-      if(diff<0) return;
+      const t1 = new Date("1970-01-01T" + salida);
+      const t2 = new Date("1970-01-01T" + llegada);
+      const diff = t2 - t1;
+      if(diff < 0) return;
 
-      filas.push({dorsal:dorsal,tiempoMS:diff});
+      filas.push({ dorsal, tiempoMS: diff });
     });
   });
 
   filas.sort((a,b)=>a.tiempoMS-b.tiempoMS);
 
-  filas.forEach(function(f){
-    var piloto=inscritos[f.dorsal]?.piloto||"-";
-    var copiloto=inscritos[f.dorsal]?.copiloto||"-";
+  filas.forEach((f) => {
+    const piloto = inscritos?.[f.dorsal]?.piloto || "-";
+    const copiloto = inscritos?.[f.dorsal]?.copiloto || "-";
 
-    var diff=f.tiempoMS;
-    var ms=diff%1000; diff=Math.floor(diff/1000);
-    var s=diff%60; diff=Math.floor(diff/60);
-    var m=diff%60;
-    var h=Math.floor(diff/60);
+    let diff = f.tiempoMS;
+    const ms = diff % 1000; diff = Math.floor(diff/1000);
+    const s = diff % 60; diff = Math.floor(diff/60);
+    const m = diff % 60;
+    const h = Math.floor(diff/60);
 
-    var tiempo=
+    const tiempo =
       String(h).padStart(2,"0")+":"+
       String(m).padStart(2,"0")+":"+
       String(s).padStart(2,"0")+"."+
       String(ms).padStart(3,"0");
 
-    var fila=document.createElement("tr");
-    fila.innerHTML=`
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
       <td>${f.dorsal}</td>
       <td>${piloto}</td>
       <td>${copiloto}</td>
       <td><strong>${tiempo}</strong></td>
     `;
-    tbody.appendChild(fila);
+    tbody.appendChild(tr);
   });
 }
 
-// ====== INSCRITOS: GUARDAR ======
-function guardarInscrito(){
-  var id=document.getElementById("selectorID").value;
-  var dorsal=document.getElementById("dorsalInput").value.trim();
-  if(!dorsal) return alert("Introduce Nº");
+// ================== INSCRITOS ==================
+$("btnGuardarInscrito").addEventListener("click", guardarInscrito);
+$("buscadorInscritos").addEventListener("keyup", filtrarInscritos);
 
-  database.ref("IDs/"+id+"/inscritos/"+dorsal).set({
-    concursante:document.getElementById("concursanteInput").value,
-    piloto:document.getElementById("pilotoInput").value,
-    copiloto:document.getElementById("copilotoInput").value,
-    vehiculo:document.getElementById("vehiculoInput").value,
-    gr_cera:document.getElementById("grceraInput").value,
-    cat_cera:document.getElementById("catceraInput").value,
-    gr_cara:document.getElementById("grcaraInput").value,
-    cat_cara:document.getElementById("catcaraInput").value,
-    traccion:document.getElementById("traccionInput").value,
-    trofeo:document.getElementById("trofeoInput").value,
-    prioridad:document.getElementById("prioridadInput").value
-  });
+async function guardarInscrito(){
+  const id = currentID || selectorID.value;
+  const dorsal = $("dorsalInput").value.trim();
+  if(!dorsal) { alert("Introduce Nº"); return; }
 
-  document.querySelectorAll("#seccionInscritos input").forEach(i=>i.value="");
+  const data = {
+    concursante: $("concursanteInput").value,
+    piloto: $("pilotoInput").value,
+    copiloto: $("copilotoInput").value,
+    vehiculo: $("vehiculoInput").value,
+    gr_cera: $("grceraInput").value,
+    cat_cera: $("catceraInput").value,
+    gr_cara: $("grcaraInput").value,
+    cat_cara: $("catcaraInput").value,
+    traccion: $("traccionInput").value,
+    trofeo: $("trofeoInput").value,
+    prioridad: $("prioridadInput").value
+  };
+
+  await set(ref(db, `IDs/${id}/inscritos/${dorsal}`), data);
+
+  // limpiar inputs (incluye el buscador también, como pediste antes)
+  document.querySelectorAll("#seccionInscritos input").forEach(i => i.value="");
 }
 
-// ====== BUSCADOR INSCRITOS ======
 function filtrarInscritos(){
-  var filtro=document.getElementById("buscadorInscritos").value.toLowerCase();
-  document.querySelectorAll("#tablaInscritos tbody tr").forEach(function(f){
-    var texto=f.innerText.toLowerCase();
-    f.style.display=texto.includes(filtro)?"":"none";
+  const filtro = $("buscadorInscritos").value.toLowerCase();
+  document.querySelectorAll("#tablaInscritos tbody tr").forEach((tr) => {
+    const texto = tr.innerText.toLowerCase();
+    tr.style.display = texto.includes(filtro) ? "" : "none";
   });
 }
 
-// ====== TABLA INSCRITOS ======
 function actualizarTablaInscritos(){
-  var tbody=document.querySelector("#tablaInscritos tbody");
-  tbody.innerHTML="";
+  const tbody = document.querySelector("#tablaInscritos tbody");
+  tbody.innerHTML = "";
 
-  Object.keys(inscritos).forEach(function(dorsal){
-    var d=inscritos[dorsal]||{};
-    var fila=document.createElement("tr");
-
-    fila.innerHTML=`
+  Object.keys(inscritos).forEach((dorsal) => {
+    const d = inscritos[dorsal] || {};
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
       <td>${dorsal}</td>
       <td>${d.concursante||""}</td>
       <td>${d.piloto||""}</td>
@@ -377,75 +393,78 @@ function actualizarTablaInscritos(){
       <td>${d.traccion||""}</td>
       <td>${d.trofeo||""}</td>
       <td>${d.prioridad||""}</td>
-      <td><button onclick="editar('${dorsal}')">Editar</button></td>
+      <td><button class="menu-btn" style="padding:4px 10px;" data-edit="${dorsal}">Editar</button></td>
     `;
-    tbody.appendChild(fila);
+    tbody.appendChild(tr);
+  });
+
+  // Delegación sencilla para editar
+  tbody.querySelectorAll("button[data-edit]").forEach(btn => {
+    btn.addEventListener("click", () => editar(btn.getAttribute("data-edit")));
   });
 }
 
 function editar(dorsal){
-  var d=inscritos[dorsal]||{};
-  document.getElementById("dorsalInput").value=dorsal;
-  document.getElementById("concursanteInput").value=d.concursante||"";
-  document.getElementById("pilotoInput").value=d.piloto||"";
-  document.getElementById("copilotoInput").value=d.copiloto||"";
-  document.getElementById("vehiculoInput").value=d.vehiculo||"";
-  document.getElementById("grceraInput").value=d.gr_cera||"";
-  document.getElementById("catceraInput").value=d.cat_cera||"";
-  document.getElementById("grcaraInput").value=d.gr_cara||"";
-  document.getElementById("catcaraInput").value=d.cat_cara||"";
-  document.getElementById("traccionInput").value=d.traccion||"";
-  document.getElementById("trofeoInput").value=d.trofeo||"";
-  document.getElementById("prioridadInput").value=d.prioridad||"";
+  const d = inscritos[dorsal] || {};
+  $("dorsalInput").value = dorsal;
+  $("concursanteInput").value = d.concursante || "";
+  $("pilotoInput").value = d.piloto || "";
+  $("copilotoInput").value = d.copiloto || "";
+  $("vehiculoInput").value = d.vehiculo || "";
+  $("grceraInput").value = d.gr_cera || "";
+  $("catceraInput").value = d.cat_cera || "";
+  $("grcaraInput").value = d.gr_cara || "";
+  $("catcaraInput").value = d.cat_cara || "";
+  $("traccionInput").value = d.traccion || "";
+  $("trofeoInput").value = d.trofeo || "";
+  $("prioridadInput").value = d.prioridad || "";
 }
 
-// ====== CREAR RALLY (ESTRUCTURA EXACTA) ======
-function crearRally(){
-  var id=document.getElementById("nuevoID").value.trim();
-  var num=parseInt(document.getElementById("numTramos").value);
+// ================== CREAR RALLY (ESCRIBE + ESTRUCTURA EXACTA) ==================
+$("btnConfirmarCrear").addEventListener("click", crearRally);
 
-  if(!id||!num||num<1){
+async function crearRally(){
+  const id = $("nuevoID").value.trim();
+  const num = parseInt($("numTramos").value);
+
+  if(!id || !num || num < 1){
     alert("Introduce ID y número de tramos válido");
     return;
   }
 
-  database.ref("IDs/"+id).once("value").then(function(snapshot){
+  const snap = await get(ref(db, `IDs/${id}`));
+  if(snap.exists()){
+    alert("Ese ID ya existe");
+    return;
+  }
 
-    if(snapshot.exists()){
-      alert("Ese ID ya existe");
-      throw new Error("ID existente");
-    }
+  // ✅ ESTRUCTURA EXACTA COMO TU ID90
+  const estructura = {
+    inscritos: {},
+    tramos: {}
+  };
 
-    // ✅ ESTRUCTURA EXACTA COMO ID90
-    var estructura = { inscritos:{}, tramos:{} };
+  for(let i=1;i<=num;i++){
+    estructura.tramos["TC"+i] = {
+      puestos: {
+        S:  { tiempos: {} },
+        LL: { tiempos: {} }
+      }
+    };
+  }
 
-    for(let i=1;i<=num;i++){
-      estructura.tramos["TC"+i] = {
-        puestos: {
-          S: { tiempos:{} },
-          LL: { tiempos:{} }
-        }
-      };
-    }
+  await set(ref(db, `IDs/${id}`), estructura);
 
-    // ✅ IMPORTANTE: set en /IDs/{id}
-    return database.ref("IDs/"+id).set(estructura);
+  alert("Rally creado correctamente");
+  $("nuevoID").value = "";
+  $("numTramos").value = "";
 
-  })
-  .then(function(){
-    alert("Rally creado correctamente");
-    document.getElementById("nuevoID").value="";
-    document.getElementById("numTramos").value="";
-    // No forzamos nada: el listener de IDs lo detecta y refresca
-  })
-  .catch(function(error){
-    if(error.message==="ID existente") return;
-    console.error("ERROR CREAR RALLY:", error);
-    alert("Error al crear rally. Mira consola (F12).");
-  });
+  // Seleccionar el nuevo ID automáticamente
+  selectorID.value = id;
+  cambiarID();
 }
 
-// ====== INICIO ======
+// ====== ARRANQUE ======
 mostrarTiempos();
 </script>
 

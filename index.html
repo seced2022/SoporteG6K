@@ -1,274 +1,444 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Control Rally</title>
+<title>Dirección de Carrera</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
 <style>
-body{
-  font-family: Arial;
-  background:#111;
-  color:#fff;
-  margin:0;
-  padding:20px;
-}
+body { background:#000; color:#00ff66; font-family:Arial; }
+h1,h2 { text-align:center; }
 
-.menu{
-  display:flex;
-  gap:10px;
-  margin-bottom:20px;
-}
-
-.btn{
-  background:#e10600;
-  border:none;
-  color:white;
-  padding:10px 18px;
-  border-radius:6px;
+.menu-btn {
+  background: linear-gradient(145deg, #0f3d00, #021a00);
+  color:#00ff66;
+  border:2px solid #00ff66;
+  border-radius:25px;
+  padding:8px 18px;
   cursor:pointer;
-  font-weight:bold;
+  margin:5px;
 }
 
-.panel{
-  display:none;
-  background:#1b1b1b;
-  padding:15px;
-  border-radius:8px;
-  margin-bottom:20px;
+.menu-btn:hover { background:#00aa44; color:#000; }
+
+input,select {
+  padding:5px;
+  margin:3px;
+  font-size:12px;
 }
 
-.panel.active{
-  display:block;
-}
-
-input,select{
-  padding:6px;
-  margin:4px;
-}
-
-table{
+table {
   width:100%;
   border-collapse:collapse;
   margin-top:10px;
+  font-size:12px;
 }
 
-th,td{
-  border:1px solid #333;
-  padding:6px;
+th,td {
+  border:1px solid #00aa44;
+  padding:4px;
   text-align:center;
 }
 
-.repetido{
-  background:#ff9800 !important;
-}
+th { background:#003300; }
+
+.section { display:none; }
 </style>
 </head>
 
 <body>
 
-<h2>🏁 Control Rally</h2>
+<h1>🏁 DIRECCIÓN DE CARRERA</h1>
 
-<div class="menu">
-  <button class="btn" onclick="mostrarPanel('crearRally')">Crear Rally</button>
-  <button class="btn" onclick="mostrarPanel('inscritos')">Inscritos</button>
-  <button class="btn" onclick="mostrarPanel('tiempos')">Tiempos</button>
+<div style="text-align:center;">
+<select id="selectorID" onchange="cambiarID()">
+<option>Cargando IDs...</option>
+</select>
+</div>
+
+<div style="text-align:center; margin:10px;">
+<button class="menu-btn" onclick="mostrarCrearRally()">➕ Crear Rally</button>
+<button class="menu-btn" onclick="mostrarInscritos()">🧾 Inscritos</button>
+<button class="menu-btn" onclick="mostrarTiempos()">⏱ Tiempos</button>
 </div>
 
 <!-- ================= CREAR RALLY ================= -->
-<div id="crearRally" class="panel">
-  <h3>Crear Rally</h3>
-
-  ID Rally:
-  <input id="nuevoID">
-
-  Nº Tramos:
-  <input id="numTramos" type="number" min="1" value="1">
-
-  <button class="btn" onclick="crearRally()">Confirmar</button>
-
-  <div id="estadoRally"></div>
+<div id="seccionCrearRally" class="section">
+<h2>➕ Crear Nuevo Rally</h2>
+<div style="text-align:center;">
+<input id="nuevoID" placeholder="Nombre ID (Ej: ID010)">
+<input type="number" id="numTramos" placeholder="Número de Tramos" min="1">
+<button class="menu-btn" onclick="crearRally()">Confirmar y Crear</button>
+</div>
 </div>
 
 <!-- ================= INSCRITOS ================= -->
-<div id="inscritos" class="panel">
-  <h3>Inscritos</h3>
+<div id="seccionInscritos" class="section">
 
-  ID:
-  <select id="idInscritos"></select>
+<h2>🧾 Gestión de Inscritos</h2>
 
-  Buscar dorsal:
-  <input id="buscarDorsal" oninput="filtrarInscritos()">
+<div style="text-align:center;">
+<input id="dorsalInput" placeholder="Nº">
+<input id="concursanteInput" placeholder="Concursante">
+<input id="pilotoInput" placeholder="Piloto">
+<input id="copilotoInput" placeholder="Copiloto">
+<input id="vehiculoInput" placeholder="Vehículo">
+<input id="grceraInput" placeholder="GR.CERA">
+<input id="catceraInput" placeholder="CAT.CERA">
+<input id="grcaraInput" placeholder="GR.CARA">
+<input id="catcaraInput" placeholder="CAT.CARA">
+<input id="traccionInput" placeholder="Tracción">
+<input id="trofeoInput" placeholder="Trofeo">
+<input id="prioridadInput" placeholder="Prioridad">
+<br>
+<button class="menu-btn" onclick="guardarInscrito()">Guardar / Actualizar</button>
+</div>
 
-  <br><br>
+<div style="text-align:center; margin-top:8px;">
+<input type="text" id="buscadorInscritos"
+placeholder="🔎 Buscar dorsal, piloto, copiloto, vehículo..."
+onkeyup="filtrarInscritos()" style="width:60%;">
+</div>
 
-  Nº <input id="i_num" size="4">
-  Concursante <input id="i_con">
-  Piloto <input id="i_pil">
-  Copiloto <input id="i_cop">
-  Vehículo <input id="i_veh">
-  GR.CERA <input id="i_gcera" size="6">
-  CAT.CERA <input id="i_ccera" size="6">
-  GR.CARA <input id="i_gcara" size="6">
-  CAT.CARA <input id="i_ccara" size="6">
-  Tracción <input id="i_trac" size="6">
-  Trofeo <input id="i_trof" size="6">
-  Prioridad <input id="i_prio" size="6">
+<table id="tablaInscritos">
+<thead>
+<tr>
+<th>Nº</th><th>Concursante</th><th>Piloto</th><th>Copiloto</th>
+<th>Vehículo</th><th>GR.CERA</th><th>CAT.CERA</th>
+<th>GR.CARA</th><th>CAT.CARA</th><th>Tracción</th>
+<th>Trofeo</th><th>Prioridad</th><th>Editar</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
 
-  <br><br>
-  <button class="btn" onclick="guardarInscrito()">Guardar</button>
-
-  <table id="tablaInscritos">
-    <thead>
-      <tr>
-        <th>Nº</th>
-        <th>Piloto</th>
-        <th>Copiloto</th>
-        <th>Vehículo</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
 </div>
 
 <!-- ================= TIEMPOS ================= -->
-<div id="tiempos" class="panel active">
-  <h3>Tiempos</h3>
+<div id="seccionTiempos" class="section">
 
-  ID:
-  <select id="selectorID"></select>
+<h2>⏱ Clasificación por Tramo</h2>
 
-  Tramo:
-  <select id="selectorTramo"></select>
-
-  <table id="tablaTiempos">
-    <thead>
-      <tr>
-        <th>Nº</th>
-        <th>Piloto</th>
-        <th>Copiloto</th>
-        <th>Tiempo</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+<div style="text-align:center;">
+<select id="selectorTramo" onchange="actualizarTabla()">
+<option value="TODOS">-- TODOS LOS TRAMOS --</option>
+</select>
 </div>
 
-<!-- ================= FIREBASE ================= -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getDatabase,
-  ref,
-  set,
-  update,
-  onValue,
-  get
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+<table id="tabla">
+<thead>
+<tr>
+<th>Nº</th>
+<th>Piloto</th>
+<th>Copiloto</th>
+<th>Tiempo</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
-  authDomain: "heideggerp6v2.firebaseapp.com",
-  databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "heideggerp6v2",
-  storageBucket: "heideggerp6v2.appspot.com",
-  messagingSenderId: "186503733",
-  appId: "1:186503733:web:ac4e03f579a8e101f5177c"
+</div>
+
+<script>
+
+var firebaseConfig={
+databaseURL:"https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+firebase.initializeApp(firebaseConfig);
+var database=firebase.database();
 
-window.db = db;
-window.ref = ref;
-window.set = set;
-window.update = update;
-window.onValue = onValue;
-window.get = get;
+var inscritosRef=null;
+var tiemposRef=null;
+var inscritos={};
+var datosProcesados={};
+var tramosDisponibles=new Set();
 
-/* ================= PANEL ================= */
+function ocultarTodo(){
+document.querySelectorAll(".section").forEach(s=>s.style.display="none");
+}
+function mostrarCrearRally(){ ocultarTodo(); document.getElementById("seccionCrearRally").style.display="block"; }
+function mostrarInscritos(){ ocultarTodo(); document.getElementById("seccionInscritos").style.display="block"; }
+function mostrarTiempos(){ ocultarTodo(); document.getElementById("seccionTiempos").style.display="block"; }
 
-window.mostrarPanel = function(id){
-  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
-};
+database.ref("IDs").on("value",function(snapshot){
+var data=snapshot.val();
+if(!data)return;
+var select=document.getElementById("selectorID");
+select.innerHTML="";
+Object.keys(data).forEach(function(idKey){
+var option=document.createElement("option");
+option.value=idKey;
+option.textContent=idKey;
+select.appendChild(option);
+});
+if(select.options.length>0){
+select.selectedIndex=0;
+cambiarID();
+}
+});
 
-/* ================= CREAR RALLY ================= */
+function cambiarID(){
 
-window.crearRally = async function(){
+var id=document.getElementById("selectorID").value;
 
-  const id = document.getElementById("nuevoID").value.trim();
-  const num = parseInt(document.getElementById("numTramos").value);
+if(inscritosRef)inscritosRef.off();
+if(tiemposRef)tiemposRef.off();
 
-  if(!id){
-    alert("Pon un ID");
-    return;
-  }
+inscritosRef=database.ref("IDs/"+id+"/inscritos");
+inscritosRef.on("value",function(snapshot){
+inscritos=snapshot.val()||{};
+actualizarTablaInscritos();
+actualizarTabla();
+});
 
-  const idRef = ref(db,"IDs/"+id);
-  const snap = await get(idRef);
-
-  if(snap.exists()){
-    alert("Ese ID ya existe");
-    return;
-  }
-
-  const tramos = {};
-  for(let i=1;i<=num;i++){
-    tramos["TC"+i] = true;
-  }
-
-  await set(idRef,{
-    creado: Date.now(),
-    tramos: tramos
-  });
-
-  document.getElementById("estadoRally").innerHTML="✅ Rally creado";
-  document.getElementById("nuevoID").value="";
-  cargarIDs();
-};
-
-/* ================= CARGAR IDS ================= */
-
-async function cargarIDs(){
-  const snap = await get(ref(db,"IDs"));
-  if(!snap.exists()) return;
-
-  const ids = Object.keys(snap.val());
-
-  const sel1 = document.getElementById("selectorID");
-  const sel2 = document.getElementById("idInscritos");
-
-  sel1.innerHTML="";
-  sel2.innerHTML="";
-
-  ids.forEach(id=>{
-    sel1.innerHTML+=`<option>${id}</option>`;
-    sel2.innerHTML+=`<option>${id}</option>`;
-  });
-
-  cargarTramos();
+tiemposRef=database.ref("IDs/"+id+"/tramos");
+tiemposRef.on("value",procesarDatos);
 }
 
-window.cargarTramos = async function(){
-  const id = document.getElementById("selectorID").value;
-  if(!id) return;
+function procesarDatos(snapshot){
 
-  const snap = await get(ref(db,"IDs/"+id+"/tramos"));
-  const sel = document.getElementById("selectorTramo");
-  sel.innerHTML="";
+var data=snapshot.val();
+datosProcesados={};
+tramosDisponibles.clear();
 
-  if(!snap.exists()) return;
+if(!data)return actualizarTabla();
 
-  Object.keys(snap.val()).forEach(tc=>{
-    sel.innerHTML+=`<option>${tc}</option>`;
-  });
+Object.keys(data).forEach(function(tramoKey){
+
+tramosDisponibles.add(tramoKey);
+var tramo=data[tramoKey];
+if(!tramo.puestos)return;
+
+Object.keys(tramo.puestos).forEach(function(puestoKey){
+
+var puesto=tramo.puestos[puestoKey];
+if(!puesto.tiempos)return;
+
+Object.values(puesto.tiempos).forEach(function(registro){
+
+var dorsal=registro.dorsal;
+var hora=registro.tiempo;
+var tipo=registro.puesto;
+
+if(!dorsal||!hora||(tipo!=="S"&&tipo!=="LL"))return;
+
+if(!datosProcesados[tramoKey])
+datosProcesados[tramoKey]={};
+
+if(!datosProcesados[tramoKey][dorsal])
+datosProcesados[tramoKey][dorsal]={S:null,LL:null};
+
+datosProcesados[tramoKey][dorsal][tipo]=hora;
+
+});
+
+});
+
+});
+
+actualizarSelectorTramos();
+actualizarTabla();
+}
+
+function actualizarSelectorTramos(){
+var select=document.getElementById("selectorTramo");
+var actual=select.value;
+select.innerHTML='<option value="TODOS">-- TODOS LOS TRAMOS --</option>';
+tramosDisponibles.forEach(function(tramo){
+var option=document.createElement("option");
+option.value=tramo;
+option.textContent=tramo;
+select.appendChild(option);
+});
+if(actual)select.value=actual;
+}
+
+function actualizarTabla(){
+
+var tbody=document.querySelector("#tabla tbody");
+tbody.innerHTML="";
+
+var tramoSeleccionado=document.getElementById("selectorTramo").value;
+var filas=[];
+
+Object.keys(datosProcesados).forEach(function(tramo){
+
+if(tramoSeleccionado!=="TODOS"&&tramo!==tramoSeleccionado)
+return;
+
+Object.keys(datosProcesados[tramo]).forEach(function(dorsal){
+
+var salida=datosProcesados[tramo][dorsal].S;
+var llegada=datosProcesados[tramo][dorsal].LL;
+if(!salida||!llegada)return;
+
+var t1=new Date("1970-01-01T"+salida);
+var t2=new Date("1970-01-01T"+llegada);
+var diff=t2-t1;
+if(diff<0)return;
+
+filas.push({dorsal:dorsal,tiempoMS:diff});
+
+});
+});
+
+filas.sort((a,b)=>a.tiempoMS-b.tiempoMS);
+
+filas.forEach(function(f){
+
+var piloto=inscritos[f.dorsal]?.piloto||"-";
+var copiloto=inscritos[f.dorsal]?.copiloto||"-";
+
+var diff=f.tiempoMS;
+var ms=diff%1000;
+diff=Math.floor(diff/1000);
+var s=diff%60;
+diff=Math.floor(diff/60);
+var m=diff%60;
+var h=Math.floor(diff/60);
+
+var tiempo=
+String(h).padStart(2,"0")+":"+
+String(m).padStart(2,"0")+":"+
+String(s).padStart(2,"0")+"."+
+String(ms).padStart(3,"0");
+
+var fila=document.createElement("tr");
+fila.innerHTML=`
+<td>${f.dorsal}</td>
+<td>${piloto}</td>
+<td>${copiloto}</td>
+<td><strong>${tiempo}</strong></td>
+`;
+tbody.appendChild(fila);
+
+});
+}
+
+function guardarInscrito(){
+
+var id=document.getElementById("selectorID").value;
+var dorsal=document.getElementById("dorsalInput").value.trim();
+if(!dorsal)return alert("Introduce Nº");
+
+database.ref("IDs/"+id+"/inscritos/"+dorsal).set({
+concursante:document.getElementById("concursanteInput").value,
+piloto:document.getElementById("pilotoInput").value,
+copiloto:document.getElementById("copilotoInput").value,
+vehiculo:document.getElementById("vehiculoInput").value,
+gr_cera:document.getElementById("grceraInput").value,
+cat_cera:document.getElementById("catceraInput").value,
+gr_cara:document.getElementById("grcaraInput").value,
+cat_cara:document.getElementById("catcaraInput").value,
+traccion:document.getElementById("traccionInput").value,
+trofeo:document.getElementById("trofeoInput").value,
+prioridad:document.getElementById("prioridadInput").value
+});
+
+document.querySelectorAll("#seccionInscritos input").forEach(i=>i.value="");
+}
+
+function filtrarInscritos(){
+var filtro=document.getElementById("buscadorInscritos").value.toLowerCase();
+document.querySelectorAll("#tablaInscritos tbody tr").forEach(function(f){
+var texto=f.innerText.toLowerCase();
+f.style.display=texto.includes(filtro)?"":"none";
+});
+}
+
+function actualizarTablaInscritos(){
+
+var tbody=document.querySelector("#tablaInscritos tbody");
+tbody.innerHTML="";
+
+Object.keys(inscritos).forEach(function(dorsal){
+
+var d=inscritos[dorsal];
+var fila=document.createElement("tr");
+
+fila.innerHTML=`
+<td>${dorsal}</td>
+<td>${d.concursante||""}</td>
+<td>${d.piloto||""}</td>
+<td>${d.copiloto||""}</td>
+<td>${d.vehiculo||""}</td>
+<td>${d.gr_cera||""}</td>
+<td>${d.cat_cera||""}</td>
+<td>${d.gr_cara||""}</td>
+<td>${d.cat_cara||""}</td>
+<td>${d.traccion||""}</td>
+<td>${d.trofeo||""}</td>
+<td>${d.prioridad||""}</td>
+<td><button onclick="editar('${dorsal}')">Editar</button></td>
+`;
+tbody.appendChild(fila);
+
+});
+}
+
+function editar(dorsal){
+var d=inscritos[dorsal];
+document.getElementById("dorsalInput").value=dorsal;
+document.getElementById("concursanteInput").value=d.concursante||"";
+document.getElementById("pilotoInput").value=d.piloto||"";
+document.getElementById("copilotoInput").value=d.copiloto||"";
+document.getElementById("vehiculoInput").value=d.vehiculo||"";
+document.getElementById("grceraInput").value=d.gr_cera||"";
+document.getElementById("catceraInput").value=d.cat_cera||"";
+document.getElementById("grcaraInput").value=d.gr_cara||"";
+document.getElementById("catcaraInput").value=d.cat_cara||"";
+document.getElementById("traccionInput").value=d.traccion||"";
+document.getElementById("trofeoInput").value=d.trofeo||"";
+document.getElementById("prioridadInput").value=d.prioridad||"";
+}
+
+function crearRally(){
+
+var id=document.getElementById("nuevoID").value.trim();
+var num=parseInt(document.getElementById("numTramos").value);
+
+if(!id||!num||num<1){
+alert("Introduce ID y número de tramos válido");
+return;
+}
+
+database.ref("IDs/"+id).once("value").then(function(snapshot){
+
+if(snapshot.exists()){
+alert("Ese ID ya existe");
+throw new Error("ID existente");
+}
+
+var estructura={inscritos:{},tramos:{}};
+
+for(let i=1;i<=num;i++){
+estructura.tramos["TC"+i]={
+puestos:{
+S:{tiempos:{}},
+LL:{tiempos:{}}
+}
 };
+}
 
-document.getElementById("selectorID").addEventListener("change",cargarTramos);
+return database.ref("IDs/"+id).set(estructura);
 
-/* ================= INICIO ================= */
+})
+.then(function(){
+alert("Rally creado correctamente");
+document.getElementById("nuevoID").value="";
+document.getElementById("numTramos").value="";
+})
+.catch(function(error){
+if(error.message==="ID existente") return;
+console.error(error);
+alert("Error al crear rally");
+});
+}
 
-cargarIDs();
+mostrarTiempos();
 
 </script>
 </body>

@@ -64,7 +64,7 @@ th { background:#003300; }
 <button class="menu-btn" onclick="mostrarTiempos()">⏱ Tiempos</button>
 </div>
 
-<!-- ================= CREAR RALLY ================= -->
+<!-- CREAR RALLY -->
 <div id="seccionCrearRally" class="section">
 <h2>➕ Crear Nuevo Rally</h2>
 <div style="text-align:center;">
@@ -74,7 +74,7 @@ th { background:#003300; }
 </div>
 </div>
 
-<!-- ================= INSCRITOS ================= -->
+<!-- INSCRITOS -->
 <div id="seccionInscritos" class="section">
 
 <h2>🧾 Gestión de Inscritos</h2>
@@ -116,7 +116,7 @@ onkeyup="filtrarInscritos()" style="width:60%;">
 
 </div>
 
-<!-- ================= TIEMPOS ================= -->
+<!-- TIEMPOS -->
 <div id="seccionTiempos" class="section">
 
 <h2>⏱ Clasificación por Tramo</h2>
@@ -143,18 +143,29 @@ onkeyup="filtrarInscritos()" style="width:60%;">
 
 <script>
 
-var firebaseConfig={
-databaseURL:"https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app"
+// ✅ CONFIG COMPLETA (CLAVE)
+var firebaseConfig = {
+  apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
+  authDomain: "heideggerp6v2.firebaseapp.com",
+  databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "heideggerp6v2",
+  storageBucket: "heideggerp6v2.firebasestorage.app",
+  messagingSenderId: "186503733",
+  appId: "1:186503733:web:ac4e03f579a8e101f5177c"
 };
 
 firebase.initializeApp(firebaseConfig);
-var database=firebase.database();
+var database = firebase.database();
+
+// ---------- ESTADO ----------
 
 var inscritosRef=null;
 var tiemposRef=null;
 var inscritos={};
 var datosProcesados={};
 var tramosDisponibles=new Set();
+
+// ---------- UI ----------
 
 function ocultarTodo(){
 document.querySelectorAll(".section").forEach(s=>s.style.display="none");
@@ -163,22 +174,29 @@ function mostrarCrearRally(){ ocultarTodo(); document.getElementById("seccionCre
 function mostrarInscritos(){ ocultarTodo(); document.getElementById("seccionInscritos").style.display="block"; }
 function mostrarTiempos(){ ocultarTodo(); document.getElementById("seccionTiempos").style.display="block"; }
 
+// ---------- CARGAR IDS ----------
+
 database.ref("IDs").on("value",function(snapshot){
 var data=snapshot.val();
 if(!data)return;
+
 var select=document.getElementById("selectorID");
 select.innerHTML="";
+
 Object.keys(data).forEach(function(idKey){
 var option=document.createElement("option");
 option.value=idKey;
 option.textContent=idKey;
 select.appendChild(option);
 });
+
 if(select.options.length>0){
 select.selectedIndex=0;
 cambiarID();
 }
 });
+
+// ---------- CAMBIAR ID ----------
 
 function cambiarID(){
 
@@ -198,13 +216,15 @@ tiemposRef=database.ref("IDs/"+id+"/tramos");
 tiemposRef.on("value",procesarDatos);
 }
 
+// ---------- PROCESAR TIEMPOS ----------
+
 function procesarDatos(snapshot){
 
 var data=snapshot.val();
 datosProcesados={};
 tramosDisponibles.clear();
 
-if(!data)return actualizarTabla();
+if(!data){ actualizarTabla(); return; }
 
 Object.keys(data).forEach(function(tramoKey){
 
@@ -243,18 +263,25 @@ actualizarSelectorTramos();
 actualizarTabla();
 }
 
+// ---------- SELECTOR TRAMOS ----------
+
 function actualizarSelectorTramos(){
 var select=document.getElementById("selectorTramo");
 var actual=select.value;
+
 select.innerHTML='<option value="TODOS">-- TODOS LOS TRAMOS --</option>';
+
 tramosDisponibles.forEach(function(tramo){
 var option=document.createElement("option");
 option.value=tramo;
 option.textContent=tramo;
 select.appendChild(option);
 });
+
 if(actual)select.value=actual;
 }
+
+// ---------- TABLA TIEMPOS ----------
 
 function actualizarTabla(){
 
@@ -317,6 +344,8 @@ tbody.appendChild(fila);
 
 });
 }
+
+// ---------- INSCRITOS ----------
 
 function guardarInscrito(){
 
@@ -395,6 +424,8 @@ document.getElementById("trofeoInput").value=d.trofeo||"";
 document.getElementById("prioridadInput").value=d.prioridad||"";
 }
 
+// ---------- CREAR RALLY (ESTRUCTURA CORRECTA) ----------
+
 function crearRally(){
 
 var id=document.getElementById("nuevoID").value.trim();
@@ -412,13 +443,16 @@ alert("Ese ID ya existe");
 throw new Error("ID existente");
 }
 
-var estructura={inscritos:{},tramos:{}};
+var estructura={
+inscritos:{},
+tramos:{}
+};
 
 for(let i=1;i<=num;i++){
 estructura.tramos["TC"+i]={
 puestos:{
-S:{tiempos:{}},
-LL:{tiempos:{}}
+S:{ tiempos:{} },
+LL:{ tiempos:{} }
 }
 };
 }
@@ -427,9 +461,11 @@ return database.ref("IDs/"+id).set(estructura);
 
 })
 .then(function(){
+
 alert("Rally creado correctamente");
 document.getElementById("nuevoID").value="";
 document.getElementById("numTramos").value="";
+
 })
 .catch(function(error){
 if(error.message==="ID existente") return;
@@ -438,8 +474,11 @@ alert("Error al crear rally");
 });
 }
 
+// ---------- INICIO ----------
+
 mostrarTiempos();
 
 </script>
+
 </body>
 </html>

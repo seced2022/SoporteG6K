@@ -146,7 +146,7 @@ onkeyup="filtrarInscritos()" style="width:60%;">
 
 <script>
 
-// ✅ CONFIG FIREBASE CORRECTA (V8 COMPLETA)
+// 🔥 CONFIG FIREBASE (CORRECTA)
 var firebaseConfig = {
   apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
   authDomain: "heideggerp6v2.firebaseapp.com",
@@ -160,7 +160,7 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var database=firebase.database();
 
-// ===== RESTO DEL CÓDIGO EXACTAMENTE COMO TE FUNCIONA =====
+// ===== VARIABLES =====
 
 var inscritosRef=null;
 var tiemposRef=null;
@@ -168,12 +168,16 @@ var inscritos={};
 var datosProcesados={};
 var tramosDisponibles=new Set();
 
+// ===== UI =====
+
 function ocultarTodo(){
 document.querySelectorAll(".section").forEach(s=>s.style.display="none");
 }
 function mostrarCrearRally(){ ocultarTodo(); document.getElementById("seccionCrearRally").style.display="block"; }
 function mostrarInscritos(){ ocultarTodo(); document.getElementById("seccionInscritos").style.display="block"; }
 function mostrarTiempos(){ ocultarTodo(); document.getElementById("seccionTiempos").style.display="block"; }
+
+// ===== CARGA IDs =====
 
 database.ref("IDs").on("value",function(snapshot){
 var data=snapshot.val();
@@ -192,6 +196,8 @@ cambiarID();
 }
 });
 
+// ===== CAMBIO ID =====
+
 function cambiarID(){
 var id=document.getElementById("selectorID").value;
 
@@ -208,6 +214,8 @@ actualizarTabla();
 tiemposRef=database.ref("IDs/"+id+"/tramos");
 tiemposRef.on("value",procesarDatos);
 }
+
+// ===== PROCESAR TIEMPOS =====
 
 function procesarDatos(snapshot){
 var data=snapshot.val();
@@ -247,146 +255,7 @@ actualizarSelectorTramos();
 actualizarTabla();
 }
 
-function actualizarSelectorTramos(){
-var select=document.getElementById("selectorTramo");
-var actual=select.value;
-select.innerHTML='<option value="TODOS">-- TODOS LOS TRAMOS --</option>';
-tramosDisponibles.forEach(function(tramo){
-var option=document.createElement("option");
-option.value=tramo;
-option.textContent=tramo;
-select.appendChild(option);
-});
-if(actual)select.value=actual;
-}
-
-function actualizarTabla(){
-var tbody=document.querySelector("#tabla tbody");
-tbody.innerHTML="";
-
-var tramoSeleccionado=document.getElementById("selectorTramo").value;
-var filas=[];
-
-Object.keys(datosProcesados).forEach(function(tramo){
-if(tramoSeleccionado!=="TODOS"&&tramo!==tramoSeleccionado) return;
-
-Object.keys(datosProcesados[tramo]).forEach(function(dorsal){
-var salida=datosProcesados[tramo][dorsal].S;
-var llegada=datosProcesados[tramo][dorsal].LL;
-if(!salida||!llegada)return;
-
-var t1=new Date("1970-01-01T"+salida);
-var t2=new Date("1970-01-01T"+llegada);
-var diff=t2-t1;
-if(diff<0)return;
-
-filas.push({dorsal:dorsal,tiempoMS:diff});
-});
-});
-
-filas.sort((a,b)=>a.tiempoMS-b.tiempoMS);
-
-filas.forEach(function(f){
-var piloto=inscritos[f.dorsal]?.piloto||"-";
-var copiloto=inscritos[f.dorsal]?.copiloto||"-";
-
-var diff=f.tiempoMS;
-var ms=diff%1000;
-diff=Math.floor(diff/1000);
-var s=diff%60;
-diff=Math.floor(diff/60);
-var m=diff%60;
-var h=Math.floor(diff/60);
-
-var tiempo=
-String(h).padStart(2,"0")+":"+
-String(m).padStart(2,"0")+":"+
-String(s).padStart(2,"0")+"."+
-String(ms).padStart(3,"0");
-
-var fila=document.createElement("tr");
-fila.innerHTML=`
-<td>${f.dorsal}</td>
-<td>${piloto}</td>
-<td>${copiloto}</td>
-<td><strong>${tiempo}</strong></td>
-`;
-tbody.appendChild(fila);
-});
-}
-
-function guardarInscrito(){
-var id=document.getElementById("selectorID").value;
-var dorsal=document.getElementById("dorsalInput").value.trim();
-if(!dorsal)return alert("Introduce Nº");
-
-database.ref("IDs/"+id+"/inscritos/"+dorsal).set({
-concursante:document.getElementById("concursanteInput").value,
-piloto:document.getElementById("pilotoInput").value,
-copiloto:document.getElementById("copilotoInput").value,
-vehiculo:document.getElementById("vehiculoInput").value,
-gr_cera:document.getElementById("grceraInput").value,
-cat_cera:document.getElementById("catceraInput").value,
-gr_cara:document.getElementById("grcaraInput").value,
-cat_cara:document.getElementById("catcaraInput").value,
-traccion:document.getElementById("traccionInput").value,
-trofeo:document.getElementById("trofeoInput").value,
-prioridad:document.getElementById("prioridadInput").value
-});
-
-document.querySelectorAll("#seccionInscritos input").forEach(i=>i.value="");
-}
-
-function filtrarInscritos(){
-var filtro=document.getElementById("buscadorInscritos").value.toLowerCase();
-document.querySelectorAll("#tablaInscritos tbody tr").forEach(function(f){
-var texto=f.innerText.toLowerCase();
-f.style.display=texto.includes(filtro)?"":"none";
-});
-}
-
-function actualizarTablaInscritos(){
-var tbody=document.querySelector("#tablaInscritos tbody");
-tbody.innerHTML="";
-
-Object.keys(inscritos).forEach(function(dorsal){
-var d=inscritos[dorsal];
-var fila=document.createElement("tr");
-
-fila.innerHTML=`
-<td>${dorsal}</td>
-<td>${d.concursante||""}</td>
-<td>${d.piloto||""}</td>
-<td>${d.copiloto||""}</td>
-<td>${d.vehiculo||""}</td>
-<td>${d.gr_cera||""}</td>
-<td>${d.cat_cera||""}</td>
-<td>${d.gr_cara||""}</td>
-<td>${d.cat_cara||""}</td>
-<td>${d.traccion||""}</td>
-<td>${d.trofeo||""}</td>
-<td>${d.prioridad||""}</td>
-<td><button onclick="editar('${dorsal}')">Editar</button></td>
-`;
-tbody.appendChild(fila);
-});
-}
-
-function editar(dorsal){
-var d=inscritos[dorsal];
-document.getElementById("dorsalInput").value=dorsal;
-document.getElementById("concursanteInput").value=d.concursante||"";
-document.getElementById("pilotoInput").value=d.piloto||"";
-document.getElementById("copilotoInput").value=d.copiloto||"";
-document.getElementById("vehiculoInput").value=d.vehiculo||"";
-document.getElementById("grceraInput").value=d.gr_cera||"";
-document.getElementById("catceraInput").value=d.cat_cera||"";
-document.getElementById("grcaraInput").value=d.gr_cara||"";
-document.getElementById("catcaraInput").value=d.cat_cara||"";
-document.getElementById("traccionInput").value=d.traccion||"";
-document.getElementById("trofeoInput").value=d.trofeo||"";
-document.getElementById("prioridadInput").value=d.prioridad||"";
-}
+// ===== CREAR RALLY (FIX DEFINITIVO) =====
 
 function crearRally(){
 
@@ -411,7 +280,12 @@ for(let i=1;i<=num;i++){
 estructura.tramos["TC"+i]={puestos:{S:{tiempos:{}},LL:{tiempos:{}}}};
 }
 
-return database.ref("IDs/"+id).set(estructura);
+// ✅ CAMBIO CLAVE → UPDATE EN RAÍZ
+var updates={};
+updates["IDs/"+id]=estructura;
+
+console.log("Creando rally:", id);
+return database.ref().update(updates);
 
 }).then(function(){
 

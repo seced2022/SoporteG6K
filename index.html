@@ -17,31 +17,28 @@ h1,h2 { text-align:center; }
   cursor:pointer;
   margin:5px;
 }
-
 .menu-btn:hover { background:#00aa44; color:#000; }
 
-input,select {
-  padding:5px;
-  margin:3px;
-  font-size:12px;
-}
+input,select { padding:5px; margin:3px; font-size:12px; }
 
-table {
-  width:100%;
-  border-collapse:collapse;
-  margin-top:10px;
-  font-size:12px;
-}
-
-th,td {
-  border:1px solid #00aa44;
-  padding:4px;
-  text-align:center;
-}
-
+table { width:100%; border-collapse:collapse; margin-top:10px; font-size:12px; }
+th,td { border:1px solid #00aa44; padding:4px; text-align:center; }
 th { background:#003300; }
-
 .section { display:none; }
+
+.status {
+  max-width: 980px;
+  margin: 10px auto;
+  border: 1px solid #00aa44;
+  padding: 10px;
+  border-radius: 10px;
+  background:#050;
+  color:#bfffd6;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.status.error { background:#400; border-color:#ff4444; color:#ffd6d6; }
+.small { font-size: 11px; opacity: .95; }
 </style>
 </head>
 
@@ -61,6 +58,8 @@ th { background:#003300; }
   <button class="menu-btn" id="btnTiempos">⏱ Tiempos</button>
 </div>
 
+<div id="estadoGlobal" class="status" style="display:none;"></div>
+
 <!-- ================= CREAR RALLY ================= -->
 <div id="seccionCrearRally" class="section">
   <h2>➕ Crear Nuevo Rally</h2>
@@ -68,12 +67,13 @@ th { background:#003300; }
     <input id="nuevoID" placeholder="Nombre ID (Ej: ID010)">
     <input type="number" id="numTramos" placeholder="Número de Tramos" min="1">
     <button class="menu-btn" id="btnConfirmarCrear">Confirmar y Crear</button>
+    <button class="menu-btn" id="btnTestWrite">Test escritura</button>
+    <div class="small" style="margin-top:6px;">Si “Test escritura” falla, el problema es permiso/reglas/dominio (no el código de crear rally).</div>
   </div>
 </div>
 
 <!-- ================= INSCRITOS ================= -->
 <div id="seccionInscritos" class="section">
-
   <h2>🧾 Gestión de Inscritos</h2>
 
   <div style="text-align:center;">
@@ -110,12 +110,10 @@ th { background:#003300; }
     </thead>
     <tbody></tbody>
   </table>
-
 </div>
 
 <!-- ================= TIEMPOS ================= -->
 <div id="seccionTiempos" class="section">
-
   <h2>⏱ Clasificación por Tramo</h2>
 
   <div style="text-align:center;">
@@ -135,17 +133,13 @@ th { background:#003300; }
     </thead>
     <tbody></tbody>
   </table>
-
 </div>
 
-<!-- ================= JS (MODULAR, PERO SIN CAMBIAR TU UI) ================= -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getDatabase, ref, onValue, get, set
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, onValue, get, set, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// ✅ TU CONFIG (MODULAR)
+// ✅ TU CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
   authDomain: "heideggerp6v2.firebaseapp.com",
@@ -159,20 +153,33 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// ================== ESTADO (igual que antes) ==================
+const $ = (id) => document.getElementById(id);
+
+function showStatus(msg, isError=false){
+  const el = $("estadoGlobal");
+  el.style.display = "block";
+  el.classList.toggle("error", !!isError);
+  el.textContent = msg;
+}
+
+// Capturar errores globales JS (por si algo se rompe)
+window.addEventListener("error", (e) => {
+  showStatus("ERROR JS:\n" + (e?.message || e), true);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  showStatus("PROMESA RECHAZADA:\n" + (e?.reason?.message || e?.reason || e), true);
+});
+
+// ================== ESTADO ==================
 let inscritos = {};
 let datosProcesados = {};
 let tramosDisponibles = new Set();
-
 let unsubInscritos = null;
 let unsubTiempos = null;
-
-const $ = (id) => document.getElementById(id);
+let currentID = null;
 
 // ================== UI ==================
-function ocultarTodo(){
-  document.querySelectorAll(".section").forEach(s => s.style.display="none");
-}
+function ocultarTodo(){ document.querySelectorAll(".section").forEach(s => s.style.display="none"); }
 function mostrarCrearRally(){ ocultarTodo(); $("seccionCrearRally").style.display="block"; }
 function mostrarInscritos(){ ocultarTodo(); $("seccionInscritos").style.display="block"; }
 function mostrarTiempos(){ ocultarTodo(); $("seccionTiempos").style.display="block"; }
@@ -183,11 +190,13 @@ $("btnTiempos").addEventListener("click", mostrarTiempos);
 
 // ================== CARGAR IDS ==================
 const selectorID = $("selectorID");
-let currentID = null;
 
 onValue(ref(db, "IDs"), (snap) => {
   const data = snap.val();
-  if(!data) return;
+  if(!data){
+    selectorID.innerHTML = "<option>No hay IDs</option>";
+    return;
+  }
 
   const prev = selectorID.value;
   selectorID.innerHTML = "";
@@ -199,37 +208,44 @@ onValue(ref(db, "IDs"), (snap) => {
     selectorID.appendChild(opt);
   });
 
-  // Mantener selección si existe
   if (prev && data[prev]) selectorID.value = prev;
   else selectorID.selectedIndex = 0;
 
-  cambiarID(); // recargar listeners al ID elegido
+  cambiarID();
+}, (err) => {
+  console.error(err);
+  showStatus("ERROR leyendo IDs:\n" + (err?.message || err), true);
 });
 
-// ================== CAMBIAR ID ==================
 selectorID.addEventListener("change", cambiarID);
 
+// ================== CAMBIAR ID ==================
 function cambiarID(){
   const id = selectorID.value;
   if(!id) return;
   currentID = id;
 
-  // cortar listeners previos
   if (typeof unsubInscritos === "function") unsubInscritos();
   if (typeof unsubTiempos === "function") unsubTiempos();
 
   unsubInscritos = onValue(ref(db, `IDs/${id}/inscritos`), (snap) => {
     inscritos = snap.val() || {};
     actualizarTablaInscritos();
-    actualizarTabla(); // por si cambia piloto/copiloto
+    actualizarTabla();
+  }, (err) => {
+    console.error(err);
+    showStatus("ERROR leyendo inscritos:\n" + (err?.message || err), true);
   });
 
   unsubTiempos = onValue(ref(db, `IDs/${id}/tramos`), (snap) => {
     procesarDatos(snap.val());
+  }, (err) => {
+    console.error(err);
+    showStatus("ERROR leyendo tramos:\n" + (err?.message || err), true);
   });
 }
 
-// ================== PROCESAR TIEMPOS (igual lógica) ==================
+// ================== PROCESAR TIEMPOS ==================
 function procesarDatos(data){
   datosProcesados = {};
   tramosDisponibles.clear();
@@ -341,28 +357,33 @@ $("btnGuardarInscrito").addEventListener("click", guardarInscrito);
 $("buscadorInscritos").addEventListener("keyup", filtrarInscritos);
 
 async function guardarInscrito(){
-  const id = currentID || selectorID.value;
-  const dorsal = $("dorsalInput").value.trim();
-  if(!dorsal) { alert("Introduce Nº"); return; }
+  try{
+    const id = currentID || selectorID.value;
+    const dorsal = $("dorsalInput").value.trim();
+    if(!dorsal) { alert("Introduce Nº"); return; }
 
-  const data = {
-    concursante: $("concursanteInput").value,
-    piloto: $("pilotoInput").value,
-    copiloto: $("copilotoInput").value,
-    vehiculo: $("vehiculoInput").value,
-    gr_cera: $("grceraInput").value,
-    cat_cera: $("catceraInput").value,
-    gr_cara: $("grcaraInput").value,
-    cat_cara: $("catcaraInput").value,
-    traccion: $("traccionInput").value,
-    trofeo: $("trofeoInput").value,
-    prioridad: $("prioridadInput").value
-  };
+    const data = {
+      concursante: $("concursanteInput").value,
+      piloto: $("pilotoInput").value,
+      copiloto: $("copilotoInput").value,
+      vehiculo: $("vehiculoInput").value,
+      gr_cera: $("grceraInput").value,
+      cat_cera: $("catceraInput").value,
+      gr_cara: $("grcaraInput").value,
+      cat_cara: $("catcaraInput").value,
+      traccion: $("traccionInput").value,
+      trofeo: $("trofeoInput").value,
+      prioridad: $("prioridadInput").value
+    };
 
-  await set(ref(db, `IDs/${id}/inscritos/${dorsal}`), data);
-
-  // limpiar inputs (incluye el buscador también, como pediste antes)
-  document.querySelectorAll("#seccionInscritos input").forEach(i => i.value="");
+    await set(ref(db, `IDs/${id}/inscritos/${dorsal}`), data);
+    document.querySelectorAll("#seccionInscritos input").forEach(i => i.value="");
+    showStatus("✅ Inscrito guardado en " + `IDs/${id}/inscritos/${dorsal}`);
+  }catch(err){
+    console.error(err);
+    showStatus("❌ ERROR guardando inscrito:\n" + (err?.message || err), true);
+    alert("Error guardando inscrito. Mira el cuadro de estado.");
+  }
 }
 
 function filtrarInscritos(){
@@ -398,7 +419,6 @@ function actualizarTablaInscritos(){
     tbody.appendChild(tr);
   });
 
-  // Delegación sencilla para editar
   tbody.querySelectorAll("button[data-edit]").forEach(btn => {
     btn.addEventListener("click", () => editar(btn.getAttribute("data-edit")));
   });
@@ -420,48 +440,65 @@ function editar(dorsal){
   $("prioridadInput").value = d.prioridad || "";
 }
 
-// ================== CREAR RALLY (ESCRIBE + ESTRUCTURA EXACTA) ==================
+// ================== TEST ESCRITURA ==================
+$("btnTestWrite").addEventListener("click", async () => {
+  try{
+    const testPath = `debug_web_write/${Date.now()}`;
+    await set(ref(db, testPath), { ok:true, t: Date.now(), server: serverTimestamp?.() || null });
+    showStatus("✅ Test escritura OK.\nSe ha escrito en:\n" + testPath);
+  }catch(err){
+    console.error(err);
+    showStatus("❌ Test escritura FALLÓ:\n" + (err?.message || err), true);
+    alert("Test escritura falló. Mira el cuadro de estado (arriba).");
+  }
+});
+
+// ================== CREAR RALLY ==================
 $("btnConfirmarCrear").addEventListener("click", crearRally);
 
 async function crearRally(){
-  const id = $("nuevoID").value.trim();
-  const num = parseInt($("numTramos").value);
+  try{
+    const id = $("nuevoID").value.trim();
+    const num = parseInt($("numTramos").value);
 
-  if(!id || !num || num < 1){
-    alert("Introduce ID y número de tramos válido");
-    return;
+    if(!id || !num || num < 1){
+      alert("Introduce ID y número de tramos válido");
+      return;
+    }
+
+    const snap = await get(ref(db, `IDs/${id}`));
+    if(snap.exists()){
+      alert("Ese ID ya existe");
+      return;
+    }
+
+    // ✅ ESTRUCTURA EXACTA COMO TU ID90
+    const estructura = { inscritos: {}, tramos: {} };
+
+    for(let i=1;i<=num;i++){
+      estructura.tramos["TC"+i] = {
+        puestos: {
+          S:  { tiempos: {} },
+          LL: { tiempos: {} }
+        }
+      };
+    }
+
+    await set(ref(db, `IDs/${id}`), estructura);
+
+    showStatus("✅ Rally creado en:\nIDs/" + id + "\nTramos: " + num);
+    alert("Rally creado correctamente");
+
+    $("nuevoID").value = "";
+    $("numTramos").value = "";
+
+    selectorID.value = id;
+    cambiarID();
+  }catch(err){
+    console.error(err);
+    showStatus("❌ ERROR creando rally:\n" + (err?.message || err), true);
+    alert("Error al crear rally. Mira el cuadro de estado (arriba).");
   }
-
-  const snap = await get(ref(db, `IDs/${id}`));
-  if(snap.exists()){
-    alert("Ese ID ya existe");
-    return;
-  }
-
-  // ✅ ESTRUCTURA EXACTA COMO TU ID90
-  const estructura = {
-    inscritos: {},
-    tramos: {}
-  };
-
-  for(let i=1;i<=num;i++){
-    estructura.tramos["TC"+i] = {
-      puestos: {
-        S:  { tiempos: {} },
-        LL: { tiempos: {} }
-      }
-    };
-  }
-
-  await set(ref(db, `IDs/${id}`), estructura);
-
-  alert("Rally creado correctamente");
-  $("nuevoID").value = "";
-  $("numTramos").value = "";
-
-  // Seleccionar el nuevo ID automáticamente
-  selectorID.value = id;
-  cambiarID();
 }
 
 // ====== ARRANQUE ======

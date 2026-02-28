@@ -1,111 +1,129 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Dirección de Carrera</title>
+<title>Control Rally</title>
 
 <style>
-body { background:#000; color:#00ff66; font-family:Arial; }
-h1,h2 { text-align:center; }
+body{
+  font-family: Arial;
+  background:#111;
+  color:#fff;
+  margin:0;
+  padding:20px;
+}
 
-.menu-btn {
-  background: linear-gradient(145deg, #0f3d00, #021a00);
-  color:#00ff66;
-  border:2px solid #00ff66;
-  border-radius:25px;
-  padding:8px 18px;
+.menu{
+  display:flex;
+  gap:10px;
+  margin-bottom:20px;
+}
+
+.btn{
+  background:#e10600;
+  border:none;
+  color:white;
+  padding:10px 18px;
+  border-radius:6px;
   cursor:pointer;
-  margin:5px;
+  font-weight:bold;
 }
-.menu-btn:hover { background:#00aa44; color:#000; }
 
-input,select { padding:5px; margin:3px; font-size:12px; }
-
-table { width:100%; border-collapse:collapse; margin-top:10px; font-size:12px; }
-th,td { border:1px solid #00aa44; padding:4px; text-align:center; }
-th { background:#003300; }
-.section { display:none; }
-
-.status {
-  max-width: 980px;
-  margin: 10px auto;
-  border: 1px solid #00aa44;
-  padding: 10px;
-  border-radius: 10px;
-  background:#050;
-  color:#bfffd6;
-  font-size: 12px;
-  white-space: pre-wrap;
+.panel{
+  display:none;
+  background:#1b1b1b;
+  padding:15px;
+  border-radius:8px;
+  margin-bottom:20px;
 }
-.status.error { background:#400; border-color:#ff4444; color:#ffd6d6; }
-.small { font-size: 11px; opacity: .95; }
+
+.panel.active{
+  display:block;
+}
+
+input,select{
+  padding:6px;
+  margin:4px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+}
+
+th,td{
+  border:1px solid #333;
+  padding:6px;
+  text-align:center;
+}
+
+.repetido{
+  background:#ff9800 !important;
+}
 </style>
 </head>
 
 <body>
 
-<h1>🏁 DIRECCIÓN DE CARRERA</h1>
+<h2>🏁 Control Rally</h2>
 
-<div style="text-align:center;">
-  <select id="selectorID">
-    <option>Cargando IDs...</option>
-  </select>
+<div class="menu">
+  <button class="btn" onclick="mostrarPanel('crearRally')">Crear Rally</button>
+  <button class="btn" onclick="mostrarPanel('inscritos')">Inscritos</button>
+  <button class="btn" onclick="mostrarPanel('tiempos')">Tiempos</button>
 </div>
-
-<div style="text-align:center; margin:10px;">
-  <button class="menu-btn" id="btnCrear">➕ Crear Rally</button>
-  <button class="menu-btn" id="btnInscritos">🧾 Inscritos</button>
-  <button class="menu-btn" id="btnTiempos">⏱ Tiempos</button>
-</div>
-
-<div id="estadoGlobal" class="status" style="display:none;"></div>
 
 <!-- ================= CREAR RALLY ================= -->
-<div id="seccionCrearRally" class="section">
-  <h2>➕ Crear Nuevo Rally</h2>
-  <div style="text-align:center;">
-    <input id="nuevoID" placeholder="Nombre ID (Ej: ID010)">
-    <input type="number" id="numTramos" placeholder="Número de Tramos" min="1">
-    <button class="menu-btn" id="btnConfirmarCrear">Confirmar y Crear</button>
-    <button class="menu-btn" id="btnTestWrite">Test escritura</button>
-    <div class="small" style="margin-top:6px;">Si “Test escritura” falla, el problema es permiso/reglas/dominio (no el código de crear rally).</div>
-  </div>
+<div id="crearRally" class="panel">
+  <h3>Crear Rally</h3>
+
+  ID Rally:
+  <input id="nuevoID">
+
+  Nº Tramos:
+  <input id="numTramos" type="number" min="1" value="1">
+
+  <button class="btn" onclick="crearRally()">Confirmar</button>
+
+  <div id="estadoRally"></div>
 </div>
 
 <!-- ================= INSCRITOS ================= -->
-<div id="seccionInscritos" class="section">
-  <h2>🧾 Gestión de Inscritos</h2>
+<div id="inscritos" class="panel">
+  <h3>Inscritos</h3>
 
-  <div style="text-align:center;">
-    <input id="dorsalInput" placeholder="Nº">
-    <input id="concursanteInput" placeholder="Concursante">
-    <input id="pilotoInput" placeholder="Piloto">
-    <input id="copilotoInput" placeholder="Copiloto">
-    <input id="vehiculoInput" placeholder="Vehículo">
-    <input id="grceraInput" placeholder="GR.CERA">
-    <input id="catceraInput" placeholder="CAT.CERA">
-    <input id="grcaraInput" placeholder="GR.CARA">
-    <input id="catcaraInput" placeholder="CAT.CARA">
-    <input id="traccionInput" placeholder="Tracción">
-    <input id="trofeoInput" placeholder="Trofeo">
-    <input id="prioridadInput" placeholder="Prioridad">
-    <br>
-    <button class="menu-btn" id="btnGuardarInscrito">Guardar / Actualizar</button>
-  </div>
+  ID:
+  <select id="idInscritos"></select>
 
-  <div style="text-align:center; margin-top:8px;">
-    <input type="text" id="buscadorInscritos"
-           placeholder="🔎 Buscar dorsal, piloto, copiloto, vehículo..."
-           style="width:60%;">
-  </div>
+  Buscar dorsal:
+  <input id="buscarDorsal" oninput="filtrarInscritos()">
+
+  <br><br>
+
+  Nº <input id="i_num" size="4">
+  Concursante <input id="i_con">
+  Piloto <input id="i_pil">
+  Copiloto <input id="i_cop">
+  Vehículo <input id="i_veh">
+  GR.CERA <input id="i_gcera" size="6">
+  CAT.CERA <input id="i_ccera" size="6">
+  GR.CARA <input id="i_gcara" size="6">
+  CAT.CARA <input id="i_ccara" size="6">
+  Tracción <input id="i_trac" size="6">
+  Trofeo <input id="i_trof" size="6">
+  Prioridad <input id="i_prio" size="6">
+
+  <br><br>
+  <button class="btn" onclick="guardarInscrito()">Guardar</button>
 
   <table id="tablaInscritos">
     <thead>
       <tr>
-        <th>Nº</th><th>Concursante</th><th>Piloto</th><th>Copiloto</th>
-        <th>Vehículo</th><th>GR.CERA</th><th>CAT.CERA</th>
-        <th>GR.CARA</th><th>CAT.CARA</th><th>Tracción</th>
-        <th>Trofeo</th><th>Prioridad</th><th>Editar</th>
+        <th>Nº</th>
+        <th>Piloto</th>
+        <th>Copiloto</th>
+        <th>Vehículo</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -113,16 +131,16 @@ th { background:#003300; }
 </div>
 
 <!-- ================= TIEMPOS ================= -->
-<div id="seccionTiempos" class="section">
-  <h2>⏱ Clasificación por Tramo</h2>
+<div id="tiempos" class="panel active">
+  <h3>Tiempos</h3>
 
-  <div style="text-align:center;">
-    <select id="selectorTramo">
-      <option value="TODOS">-- TODOS LOS TRAMOS --</option>
-    </select>
-  </div>
+  ID:
+  <select id="selectorID"></select>
 
-  <table id="tabla">
+  Tramo:
+  <select id="selectorTramo"></select>
+
+  <table id="tablaTiempos">
     <thead>
       <tr>
         <th>Nº</th>
@@ -135,11 +153,18 @@ th { background:#003300; }
   </table>
 </div>
 
+<!-- ================= FIREBASE ================= -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, onValue, get, set, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import {
+  getDatabase,
+  ref,
+  set,
+  update,
+  onValue,
+  get
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// ✅ TU CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
   authDomain: "heideggerp6v2.firebaseapp.com",
@@ -153,357 +178,98 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const $ = (id) => document.getElementById(id);
+window.db = db;
+window.ref = ref;
+window.set = set;
+window.update = update;
+window.onValue = onValue;
+window.get = get;
 
-function showStatus(msg, isError=false){
-  const el = $("estadoGlobal");
-  el.style.display = "block";
-  el.classList.toggle("error", !!isError);
-  el.textContent = msg;
-}
+/* ================= PANEL ================= */
 
-// Capturar errores globales JS (por si algo se rompe)
-window.addEventListener("error", (e) => {
-  showStatus("ERROR JS:\n" + (e?.message || e), true);
-});
-window.addEventListener("unhandledrejection", (e) => {
-  showStatus("PROMESA RECHAZADA:\n" + (e?.reason?.message || e?.reason || e), true);
-});
+window.mostrarPanel = function(id){
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+};
 
-// ================== ESTADO ==================
-let inscritos = {};
-let datosProcesados = {};
-let tramosDisponibles = new Set();
-let unsubInscritos = null;
-let unsubTiempos = null;
-let currentID = null;
+/* ================= CREAR RALLY ================= */
 
-// ================== UI ==================
-function ocultarTodo(){ document.querySelectorAll(".section").forEach(s => s.style.display="none"); }
-function mostrarCrearRally(){ ocultarTodo(); $("seccionCrearRally").style.display="block"; }
-function mostrarInscritos(){ ocultarTodo(); $("seccionInscritos").style.display="block"; }
-function mostrarTiempos(){ ocultarTodo(); $("seccionTiempos").style.display="block"; }
+window.crearRally = async function(){
 
-$("btnCrear").addEventListener("click", mostrarCrearRally);
-$("btnInscritos").addEventListener("click", mostrarInscritos);
-$("btnTiempos").addEventListener("click", mostrarTiempos);
+  const id = document.getElementById("nuevoID").value.trim();
+  const num = parseInt(document.getElementById("numTramos").value);
 
-// ================== CARGAR IDS ==================
-const selectorID = $("selectorID");
-
-onValue(ref(db, "IDs"), (snap) => {
-  const data = snap.val();
-  if(!data){
-    selectorID.innerHTML = "<option>No hay IDs</option>";
+  if(!id){
+    alert("Pon un ID");
     return;
   }
 
-  const prev = selectorID.value;
-  selectorID.innerHTML = "";
+  const idRef = ref(db,"IDs/"+id);
+  const snap = await get(idRef);
 
-  Object.keys(data).forEach((idKey) => {
-    const opt = document.createElement("option");
-    opt.value = idKey;
-    opt.textContent = idKey;
-    selectorID.appendChild(opt);
+  if(snap.exists()){
+    alert("Ese ID ya existe");
+    return;
+  }
+
+  const tramos = {};
+  for(let i=1;i<=num;i++){
+    tramos["TC"+i] = true;
+  }
+
+  await set(idRef,{
+    creado: Date.now(),
+    tramos: tramos
   });
 
-  if (prev && data[prev]) selectorID.value = prev;
-  else selectorID.selectedIndex = 0;
+  document.getElementById("estadoRally").innerHTML="✅ Rally creado";
+  document.getElementById("nuevoID").value="";
+  cargarIDs();
+};
 
-  cambiarID();
-}, (err) => {
-  console.error(err);
-  showStatus("ERROR leyendo IDs:\n" + (err?.message || err), true);
-});
+/* ================= CARGAR IDS ================= */
 
-selectorID.addEventListener("change", cambiarID);
+async function cargarIDs(){
+  const snap = await get(ref(db,"IDs"));
+  if(!snap.exists()) return;
 
-// ================== CAMBIAR ID ==================
-function cambiarID(){
-  const id = selectorID.value;
+  const ids = Object.keys(snap.val());
+
+  const sel1 = document.getElementById("selectorID");
+  const sel2 = document.getElementById("idInscritos");
+
+  sel1.innerHTML="";
+  sel2.innerHTML="";
+
+  ids.forEach(id=>{
+    sel1.innerHTML+=`<option>${id}</option>`;
+    sel2.innerHTML+=`<option>${id}</option>`;
+  });
+
+  cargarTramos();
+}
+
+window.cargarTramos = async function(){
+  const id = document.getElementById("selectorID").value;
   if(!id) return;
-  currentID = id;
 
-  if (typeof unsubInscritos === "function") unsubInscritos();
-  if (typeof unsubTiempos === "function") unsubTiempos();
+  const snap = await get(ref(db,"IDs/"+id+"/tramos"));
+  const sel = document.getElementById("selectorTramo");
+  sel.innerHTML="";
 
-  unsubInscritos = onValue(ref(db, `IDs/${id}/inscritos`), (snap) => {
-    inscritos = snap.val() || {};
-    actualizarTablaInscritos();
-    actualizarTabla();
-  }, (err) => {
-    console.error(err);
-    showStatus("ERROR leyendo inscritos:\n" + (err?.message || err), true);
+  if(!snap.exists()) return;
+
+  Object.keys(snap.val()).forEach(tc=>{
+    sel.innerHTML+=`<option>${tc}</option>`;
   });
+};
 
-  unsubTiempos = onValue(ref(db, `IDs/${id}/tramos`), (snap) => {
-    procesarDatos(snap.val());
-  }, (err) => {
-    console.error(err);
-    showStatus("ERROR leyendo tramos:\n" + (err?.message || err), true);
-  });
-}
+document.getElementById("selectorID").addEventListener("change",cargarTramos);
 
-// ================== PROCESAR TIEMPOS ==================
-function procesarDatos(data){
-  datosProcesados = {};
-  tramosDisponibles.clear();
+/* ================= INICIO ================= */
 
-  if(!data){ actualizarTabla(); return; }
+cargarIDs();
 
-  Object.keys(data).forEach((tramoKey) => {
-    tramosDisponibles.add(tramoKey);
-    const tramo = data[tramoKey];
-    if(!tramo || !tramo.puestos) return;
-
-    Object.keys(tramo.puestos).forEach((puestoKey) => {
-      const puesto = tramo.puestos[puestoKey];
-      if(!puesto || !puesto.tiempos) return;
-
-      Object.values(puesto.tiempos).forEach((registro) => {
-        const dorsal = registro.dorsal;
-        const hora = registro.tiempo;
-        const tipo = registro.puesto;
-
-        if(!dorsal || !hora || (tipo !== "S" && tipo !== "LL")) return;
-
-        if(!datosProcesados[tramoKey]) datosProcesados[tramoKey] = {};
-        if(!datosProcesados[tramoKey][dorsal]) datosProcesados[tramoKey][dorsal] = { S:null, LL:null };
-
-        datosProcesados[tramoKey][dorsal][tipo] = hora;
-      });
-    });
-  });
-
-  actualizarSelectorTramos();
-  actualizarTabla();
-}
-
-// ================== SELECTOR TRAMOS ==================
-$("selectorTramo").addEventListener("change", actualizarTabla);
-
-function actualizarSelectorTramos(){
-  const select = $("selectorTramo");
-  const actual = select.value;
-
-  select.innerHTML = '<option value="TODOS">-- TODOS LOS TRAMOS --</option>';
-  tramosDisponibles.forEach((tramo) => {
-    const opt = document.createElement("option");
-    opt.value = tramo;
-    opt.textContent = tramo;
-    select.appendChild(opt);
-  });
-
-  if(actual) select.value = actual;
-}
-
-// ================== TABLA TIEMPOS ==================
-function actualizarTabla(){
-  const tbody = document.querySelector("#tabla tbody");
-  tbody.innerHTML = "";
-
-  const tramoSeleccionado = $("selectorTramo").value;
-  const filas = [];
-
-  Object.keys(datosProcesados).forEach((tramo) => {
-    if(tramoSeleccionado !== "TODOS" && tramo !== tramoSeleccionado) return;
-
-    Object.keys(datosProcesados[tramo]).forEach((dorsal) => {
-      const salida = datosProcesados[tramo][dorsal].S;
-      const llegada = datosProcesados[tramo][dorsal].LL;
-      if(!salida || !llegada) return;
-
-      const t1 = new Date("1970-01-01T" + salida);
-      const t2 = new Date("1970-01-01T" + llegada);
-      const diff = t2 - t1;
-      if(diff < 0) return;
-
-      filas.push({ dorsal, tiempoMS: diff });
-    });
-  });
-
-  filas.sort((a,b)=>a.tiempoMS-b.tiempoMS);
-
-  filas.forEach((f) => {
-    const piloto = inscritos?.[f.dorsal]?.piloto || "-";
-    const copiloto = inscritos?.[f.dorsal]?.copiloto || "-";
-
-    let diff = f.tiempoMS;
-    const ms = diff % 1000; diff = Math.floor(diff/1000);
-    const s = diff % 60; diff = Math.floor(diff/60);
-    const m = diff % 60;
-    const h = Math.floor(diff/60);
-
-    const tiempo =
-      String(h).padStart(2,"0")+":"+
-      String(m).padStart(2,"0")+":"+
-      String(s).padStart(2,"0")+"."+
-      String(ms).padStart(3,"0");
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${f.dorsal}</td>
-      <td>${piloto}</td>
-      <td>${copiloto}</td>
-      <td><strong>${tiempo}</strong></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// ================== INSCRITOS ==================
-$("btnGuardarInscrito").addEventListener("click", guardarInscrito);
-$("buscadorInscritos").addEventListener("keyup", filtrarInscritos);
-
-async function guardarInscrito(){
-  try{
-    const id = currentID || selectorID.value;
-    const dorsal = $("dorsalInput").value.trim();
-    if(!dorsal) { alert("Introduce Nº"); return; }
-
-    const data = {
-      concursante: $("concursanteInput").value,
-      piloto: $("pilotoInput").value,
-      copiloto: $("copilotoInput").value,
-      vehiculo: $("vehiculoInput").value,
-      gr_cera: $("grceraInput").value,
-      cat_cera: $("catceraInput").value,
-      gr_cara: $("grcaraInput").value,
-      cat_cara: $("catcaraInput").value,
-      traccion: $("traccionInput").value,
-      trofeo: $("trofeoInput").value,
-      prioridad: $("prioridadInput").value
-    };
-
-    await set(ref(db, `IDs/${id}/inscritos/${dorsal}`), data);
-    document.querySelectorAll("#seccionInscritos input").forEach(i => i.value="");
-    showStatus("✅ Inscrito guardado en " + `IDs/${id}/inscritos/${dorsal}`);
-  }catch(err){
-    console.error(err);
-    showStatus("❌ ERROR guardando inscrito:\n" + (err?.message || err), true);
-    alert("Error guardando inscrito. Mira el cuadro de estado.");
-  }
-}
-
-function filtrarInscritos(){
-  const filtro = $("buscadorInscritos").value.toLowerCase();
-  document.querySelectorAll("#tablaInscritos tbody tr").forEach((tr) => {
-    const texto = tr.innerText.toLowerCase();
-    tr.style.display = texto.includes(filtro) ? "" : "none";
-  });
-}
-
-function actualizarTablaInscritos(){
-  const tbody = document.querySelector("#tablaInscritos tbody");
-  tbody.innerHTML = "";
-
-  Object.keys(inscritos).forEach((dorsal) => {
-    const d = inscritos[dorsal] || {};
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${dorsal}</td>
-      <td>${d.concursante||""}</td>
-      <td>${d.piloto||""}</td>
-      <td>${d.copiloto||""}</td>
-      <td>${d.vehiculo||""}</td>
-      <td>${d.gr_cera||""}</td>
-      <td>${d.cat_cera||""}</td>
-      <td>${d.gr_cara||""}</td>
-      <td>${d.cat_cara||""}</td>
-      <td>${d.traccion||""}</td>
-      <td>${d.trofeo||""}</td>
-      <td>${d.prioridad||""}</td>
-      <td><button class="menu-btn" style="padding:4px 10px;" data-edit="${dorsal}">Editar</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  tbody.querySelectorAll("button[data-edit]").forEach(btn => {
-    btn.addEventListener("click", () => editar(btn.getAttribute("data-edit")));
-  });
-}
-
-function editar(dorsal){
-  const d = inscritos[dorsal] || {};
-  $("dorsalInput").value = dorsal;
-  $("concursanteInput").value = d.concursante || "";
-  $("pilotoInput").value = d.piloto || "";
-  $("copilotoInput").value = d.copiloto || "";
-  $("vehiculoInput").value = d.vehiculo || "";
-  $("grceraInput").value = d.gr_cera || "";
-  $("catceraInput").value = d.cat_cera || "";
-  $("grcaraInput").value = d.gr_cara || "";
-  $("catcaraInput").value = d.cat_cara || "";
-  $("traccionInput").value = d.traccion || "";
-  $("trofeoInput").value = d.trofeo || "";
-  $("prioridadInput").value = d.prioridad || "";
-}
-
-// ================== TEST ESCRITURA ==================
-$("btnTestWrite").addEventListener("click", async () => {
-  try{
-    const testPath = `debug_web_write/${Date.now()}`;
-    await set(ref(db, testPath), { ok:true, t: Date.now(), server: serverTimestamp?.() || null });
-    showStatus("✅ Test escritura OK.\nSe ha escrito en:\n" + testPath);
-  }catch(err){
-    console.error(err);
-    showStatus("❌ Test escritura FALLÓ:\n" + (err?.message || err), true);
-    alert("Test escritura falló. Mira el cuadro de estado (arriba).");
-  }
-});
-
-// ================== CREAR RALLY ==================
-$("btnConfirmarCrear").addEventListener("click", crearRally);
-
-async function crearRally(){
-  try{
-    const id = $("nuevoID").value.trim();
-    const num = parseInt($("numTramos").value);
-
-    if(!id || !num || num < 1){
-      alert("Introduce ID y número de tramos válido");
-      return;
-    }
-
-    const snap = await get(ref(db, `IDs/${id}`));
-    if(snap.exists()){
-      alert("Ese ID ya existe");
-      return;
-    }
-
-    // ✅ ESTRUCTURA EXACTA COMO TU ID90
-    const estructura = { inscritos: {}, tramos: {} };
-
-    for(let i=1;i<=num;i++){
-      estructura.tramos["TC"+i] = {
-        puestos: {
-          S:  { tiempos: {} },
-          LL: { tiempos: {} }
-        }
-      };
-    }
-
-    await set(ref(db, `IDs/${id}`), estructura);
-
-    showStatus("✅ Rally creado en:\nIDs/" + id + "\nTramos: " + num);
-    alert("Rally creado correctamente");
-
-    $("nuevoID").value = "";
-    $("numTramos").value = "";
-
-    selectorID.value = id;
-    cambiarID();
-  }catch(err){
-    console.error(err);
-    showStatus("❌ ERROR creando rally:\n" + (err?.message || err), true);
-    alert("Error al crear rally. Mira el cuadro de estado (arriba).");
-  }
-}
-
-// ====== ARRANQUE ======
-mostrarTiempos();
 </script>
-
 </body>
 </html>

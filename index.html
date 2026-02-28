@@ -146,12 +146,21 @@ onkeyup="filtrarInscritos()" style="width:60%;">
 
 <script>
 
-var firebaseConfig={
-databaseURL:"https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app"
+// ✅ CONFIG FIREBASE CORRECTA (V8 COMPLETA)
+var firebaseConfig = {
+  apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
+  authDomain: "heideggerp6v2.firebaseapp.com",
+  databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "heideggerp6v2",
+  storageBucket: "heideggerp6v2.firebasestorage.app",
+  messagingSenderId: "186503733",
+  appId: "1:186503733:web:ac4e03f579a8e101f5177c"
 };
 
 firebase.initializeApp(firebaseConfig);
 var database=firebase.database();
+
+// ===== RESTO DEL CÓDIGO EXACTAMENTE COMO TE FUNCIONA =====
 
 var inscritosRef=null;
 var tiemposRef=null;
@@ -184,7 +193,6 @@ cambiarID();
 });
 
 function cambiarID(){
-
 var id=document.getElementById("selectorID").value;
 
 if(inscritosRef)inscritosRef.off();
@@ -202,7 +210,6 @@ tiemposRef.on("value",procesarDatos);
 }
 
 function procesarDatos(snapshot){
-
 var data=snapshot.val();
 datosProcesados={};
 tramosDisponibles.clear();
@@ -210,18 +217,15 @@ tramosDisponibles.clear();
 if(!data)return actualizarTabla();
 
 Object.keys(data).forEach(function(tramoKey){
-
 tramosDisponibles.add(tramoKey);
 var tramo=data[tramoKey];
 if(!tramo.puestos)return;
 
 Object.keys(tramo.puestos).forEach(function(puestoKey){
-
 var puesto=tramo.puestos[puestoKey];
 if(!puesto.tiempos)return;
 
 Object.values(puesto.tiempos).forEach(function(registro){
-
 var dorsal=registro.dorsal;
 var hora=registro.tiempo;
 var tipo=registro.puesto;
@@ -235,11 +239,8 @@ if(!datosProcesados[tramoKey][dorsal])
 datosProcesados[tramoKey][dorsal]={S:null,LL:null};
 
 datosProcesados[tramoKey][dorsal][tipo]=hora;
-
 });
-
 });
-
 });
 
 actualizarSelectorTramos();
@@ -260,7 +261,6 @@ if(actual)select.value=actual;
 }
 
 function actualizarTabla(){
-
 var tbody=document.querySelector("#tabla tbody");
 tbody.innerHTML="";
 
@@ -268,12 +268,9 @@ var tramoSeleccionado=document.getElementById("selectorTramo").value;
 var filas=[];
 
 Object.keys(datosProcesados).forEach(function(tramo){
-
-if(tramoSeleccionado!=="TODOS"&&tramo!==tramoSeleccionado)
-return;
+if(tramoSeleccionado!=="TODOS"&&tramo!==tramoSeleccionado) return;
 
 Object.keys(datosProcesados[tramo]).forEach(function(dorsal){
-
 var salida=datosProcesados[tramo][dorsal].S;
 var llegada=datosProcesados[tramo][dorsal].LL;
 if(!salida||!llegada)return;
@@ -284,14 +281,12 @@ var diff=t2-t1;
 if(diff<0)return;
 
 filas.push({dorsal:dorsal,tiempoMS:diff});
-
 });
 });
 
 filas.sort((a,b)=>a.tiempoMS-b.tiempoMS);
 
 filas.forEach(function(f){
-
 var piloto=inscritos[f.dorsal]?.piloto||"-";
 var copiloto=inscritos[f.dorsal]?.copiloto||"-";
 
@@ -317,12 +312,10 @@ fila.innerHTML=`
 <td><strong>${tiempo}</strong></td>
 `;
 tbody.appendChild(fila);
-
 });
 }
 
 function guardarInscrito(){
-
 var id=document.getElementById("selectorID").value;
 var dorsal=document.getElementById("dorsalInput").value.trim();
 if(!dorsal)return alert("Introduce Nº");
@@ -353,12 +346,10 @@ f.style.display=texto.includes(filtro)?"":"none";
 }
 
 function actualizarTablaInscritos(){
-
 var tbody=document.querySelector("#tablaInscritos tbody");
 tbody.innerHTML="";
 
 Object.keys(inscritos).forEach(function(dorsal){
-
 var d=inscritos[dorsal];
 var fila=document.createElement("tr");
 
@@ -378,7 +369,6 @@ fila.innerHTML=`
 <td><button onclick="editar('${dorsal}')">Editar</button></td>
 `;
 tbody.appendChild(fila);
-
 });
 }
 
@@ -408,7 +398,6 @@ alert("Introduce ID y número de tramos válido");
 return;
 }
 
-// Comprobar si ya existe
 database.ref("IDs/"+id).once("value").then(function(snapshot){
 
 if(snapshot.exists()){
@@ -416,46 +405,28 @@ alert("Ese ID ya existe");
 throw new Error("ID existente");
 }
 
-var estructura={
-inscritos:{},
-tramos:{}
-};
+var estructura={inscritos:{},tramos:{}};
 
 for(let i=1;i<=num;i++){
-estructura.tramos["TC"+i]={
-puestos:{
-S:{tiempos:{}},
-LL:{tiempos:{}}
-}
-};
+estructura.tramos["TC"+i]={puestos:{S:{tiempos:{}},LL:{tiempos:{}}}};
 }
 
-// Crear en Firebase
 return database.ref("IDs/"+id).set(estructura);
 
-})
-.then(function(){
+}).then(function(){
 
 alert("Rally creado correctamente");
-
-// Limpiar formulario
 document.getElementById("nuevoID").value="";
 document.getElementById("numTramos").value="";
 
-// NO añadimos manualmente al selector
-// El listener de IDs lo detectará automáticamente
-
-})
-.catch(function(error){
+}).catch(function(error){
 
 if(error.message==="ID existente") return;
-
 console.error("ERROR REAL:", error);
 alert("Error al crear rally. Revisa consola.");
 
 });
 }
-
 
 mostrarTiempos();
 

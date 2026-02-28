@@ -12,13 +12,11 @@ body{
   margin:0;
   padding:20px;
 }
-
 .menu{
   display:flex;
   gap:10px;
   margin-bottom:20px;
 }
-
 .btn{
   background:#e10600;
   border:none;
@@ -28,7 +26,6 @@ body{
   cursor:pointer;
   font-weight:bold;
 }
-
 .panel{
   display:none;
   background:#1b1b1b;
@@ -36,31 +33,12 @@ body{
   border-radius:8px;
   margin-bottom:20px;
 }
-
-.panel.active{
-  display:block;
-}
-
-input,select{
-  padding:6px;
-  margin:4px;
-}
-
-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:10px;
-}
-
-th,td{
-  border:1px solid #333;
-  padding:6px;
-  text-align:center;
-}
-
-.repetido{
-  background:#ff9800 !important;
-}
+.panel.active{ display:block; }
+input,select{ padding:6px; margin:4px; }
+table{ width:100%; border-collapse:collapse; margin-top:10px; }
+th,td{ border:1px solid #333; padding:6px; text-align:center; }
+.repetido{ background:#ff9800 !important; }
+.small{ font-size:12px; opacity:.85; }
 </style>
 </head>
 
@@ -79,14 +57,14 @@ th,td{
   <h3>Crear Rally</h3>
 
   ID Rally:
-  <input id="nuevoID">
+  <input id="nuevoID" placeholder="Ej: ID91">
 
   Nº Tramos:
   <input id="numTramos" type="number" min="1" value="1">
 
   <button class="btn" onclick="crearRally()">Confirmar</button>
 
-  <div id="estadoRally"></div>
+  <div id="estadoRally" class="small"></div>
 </div>
 
 <!-- ================= INSCRITOS ================= -->
@@ -116,6 +94,7 @@ th,td{
 
   <br><br>
   <button class="btn" onclick="guardarInscrito()">Guardar</button>
+  <span id="estadoInscritos" class="small"></span>
 
   <table id="tablaInscritos">
     <thead>
@@ -151,6 +130,8 @@ th,td{
     </thead>
     <tbody></tbody>
   </table>
+
+  <div class="small" id="estadoTiempos"></div>
 </div>
 
 <!-- ================= FIREBASE ================= -->
@@ -160,7 +141,6 @@ import {
   getDatabase,
   ref,
   set,
-  update,
   onValue,
   get
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -170,7 +150,7 @@ const firebaseConfig = {
   authDomain: "heideggerp6v2.firebaseapp.com",
   databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "heideggerp6v2",
-  storageBucket: "heideggerp6v2.appspot.com",
+  storageBucket: "heideggerp6v2.firebasestorage.app",
   messagingSenderId: "186503733",
   appId: "1:186503733:web:ac4e03f579a8e101f5177c"
 };
@@ -178,33 +158,117 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-window.db = db;
-window.ref = ref;
-window.set = set;
-window.update = update;
-window.onValue = onValue;
-window.get = get;
+const $ = (id)=>document.getElementById(id);
 
-/* ================= PANEL ================= */
+let idsCache = [];
+let inscritosCache = {};
+let datosProcesados = {};  // {TCx: { dorsal: {S:hora, LL:hora} } }
+let currentID = null;
 
+// ================= PANEL =================
 window.mostrarPanel = function(id){
   document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 };
 
-/* ================= CREAR RALLY ================= */
+// ================= CARGAR IDS (en vivo) =================
+onValue(ref(db,"IDs"), (snap)=>{
+  const data = snap.val() || {};
+  idsCache = Object.keys(data);
 
+  // Rellenar ambos selectores sin romper selección actual
+  const selT = $("selectorID");
+  const selI = $("idInscritos");
+
+  const prevT = selT.value;
+  const prevI = selI.value;
+
+  selT.innerHTML = "";
+  selI.innerHTML = "";
+
+  idsCache.forEach(id=>{
+    const o1 = document.createElement("option");
+    o1.value=id; o1.textContent=id;
+    selT.appendChild(o1);
+
+    const o2 = document.createElement("option");
+    o2.value=id; o2.textContent=id;
+    selI.appendChild(o2);
+  });
+
+  if (prevT && idsCache.includes(prevT)) selT.value = prevT;
+  if (prevI && idsCache.includes(prevI)) selI.value = prevI;
+
+  if(!selT.value && idsCache.length) selT.value = idsCache[0];
+  if(!selI.value && idsCache.length) selI.value = idsCache[0];
+
+  if(selT.value && selT.value !== currentID){
+    currentID = selT.value;
+    engancharListenersDeID(currentID);
+  } else if(selT.value && !currentID){
+    currentID = selT.value;
+    engancharListenersDeID(currentID);
+  }
+});
+
+// cuando cambias ID en tiempos
+$("selectorID").addEventListener("change", ()=>{
+  currentID = $("selectorID").value;
+  engancharListenersDeID(currentID);
+});
+
+// cuando cambias ID en inscritos
+$("idInscritos").addEventListener("change", ()=>{
+  cargarInscritos($("idInscritos").value);
+});
+
+// cuando cambias tramo
+$("selectorTramo").addEventListener("change", ()=>{
+  pintarTablaTiempos();
+});
+
+// ================== LISTENERS POR ID ==================
+let offTramos = null;
+let offInscritos = null;
+
+function engancharListenersDeID(id){
+  // tramos
+  onValue(ref(db, `IDs/${id}/tramos`), (snap)=>{
+    const tramosData = snap.val() || {};
+    procesarTramos(tramosData);
+    cargarSelectorTramos(tramosData);
+    pintarTablaTiempos();
+  });
+
+  // inscritos (para sacar piloto/copiloto en tiempos)
+  onValue(ref(db, `IDs/${id}/inscritos`), (snap)=>{
+    inscritosCache = snap.val() || {};
+    // refrescar tiempos (por si cambian nombres)
+    pintarTablaTiempos();
+    // y si estamos en panel inscritos y coincide
+    if($("idInscritos").value === id){
+      pintarTablaInscritos();
+    }
+  });
+
+  // también cargar inscritos del selector de inscritos si coincide
+  if($("idInscritos").value === id){
+    cargarInscritos(id);
+  }
+}
+
+// ================== CREAR RALLY (ESTRUCTURA CORRECTA) ==================
 window.crearRally = async function(){
 
-  const id = document.getElementById("nuevoID").value.trim();
-  const num = parseInt(document.getElementById("numTramos").value);
+  const id = $("nuevoID").value.trim();
+  const num = parseInt($("numTramos").value);
 
-  if(!id){
-    alert("Pon un ID");
+  if(!id || !num || num < 1){
+    alert("Pon un ID y nº tramos válido");
     return;
   }
 
-  const idRef = ref(db,"IDs/"+id);
+  const idRef = ref(db, "IDs/"+id);
   const snap = await get(idRef);
 
   if(snap.exists()){
@@ -212,63 +276,209 @@ window.crearRally = async function(){
     return;
   }
 
-  const tramos = {};
+  // ✅ ESTRUCTURA EXACTA COMO TU ID90
+  const estructura = {
+    inscritos: {},
+    tramos: {}
+  };
+
   for(let i=1;i<=num;i++){
-    tramos["TC"+i] = true;
+    estructura.tramos["TC"+i] = {
+      puestos: {
+        S:  { tiempos: {} },
+        LL: { tiempos: {} }
+      }
+    };
   }
 
-  await set(idRef,{
-    creado: Date.now(),
-    tramos: tramos
-  });
+  await set(idRef, estructura);
 
-  document.getElementById("estadoRally").innerHTML="✅ Rally creado";
-  document.getElementById("nuevoID").value="";
-  cargarIDs();
+  $("estadoRally").textContent = "✅ Rally creado con estructura correcta";
+  $("nuevoID").value = "";
+  // dejamos numTramos como está
+
+  // seleccionar el nuevo ID automáticamente en ambos selectores
+  $("selectorID").value = id;
+  $("idInscritos").value = id;
+  currentID = id;
+  engancharListenersDeID(id);
+  mostrarPanel("tiempos");
 };
 
-/* ================= CARGAR IDS ================= */
+// ================== TRAMOS -> SELECTOR ==================
+function cargarSelectorTramos(tramosData){
+  const sel = $("selectorTramo");
+  const prev = sel.value;
 
-async function cargarIDs(){
-  const snap = await get(ref(db,"IDs"));
-  if(!snap.exists()) return;
+  sel.innerHTML = "";
+  const optAll = document.createElement("option");
+  optAll.value = "TODOS";
+  optAll.textContent = "TODOS";
+  sel.appendChild(optAll);
 
-  const ids = Object.keys(snap.val());
-
-  const sel1 = document.getElementById("selectorID");
-  const sel2 = document.getElementById("idInscritos");
-
-  sel1.innerHTML="";
-  sel2.innerHTML="";
-
-  ids.forEach(id=>{
-    sel1.innerHTML+=`<option>${id}</option>`;
-    sel2.innerHTML+=`<option>${id}</option>`;
+  Object.keys(tramosData).forEach(tc=>{
+    const opt = document.createElement("option");
+    opt.value = tc;
+    opt.textContent = tc;
+    sel.appendChild(opt);
   });
 
-  cargarTramos();
+  if(prev && [...sel.options].some(o=>o.value===prev)) sel.value = prev;
+  else sel.value = "TODOS";
 }
 
-window.cargarTramos = async function(){
-  const id = document.getElementById("selectorID").value;
-  if(!id) return;
+// ================== PROCESAR TIEMPOS (S/LL) ==================
+function procesarTramos(tramosData){
+  datosProcesados = {}; // reset
 
-  const snap = await get(ref(db,"IDs/"+id+"/tramos"));
-  const sel = document.getElementById("selectorTramo");
-  sel.innerHTML="";
+  Object.keys(tramosData).forEach(tc=>{
+    const tramo = tramosData[tc];
+    if(!tramo || !tramo.puestos) return;
 
-  if(!snap.exists()) return;
+    const puestos = tramo.puestos;
+    ["S","LL"].forEach(tipo=>{
+      const nodo = puestos[tipo];
+      if(!nodo || !nodo.tiempos) return;
 
-  Object.keys(snap.val()).forEach(tc=>{
-    sel.innerHTML+=`<option>${tc}</option>`;
+      Object.values(nodo.tiempos).forEach(reg=>{
+        const dorsal = reg?.dorsal;
+        const hora = reg?.tiempo;
+        const puesto = reg?.puesto;
+
+        if(!dorsal || !hora) return;
+        if(puesto !== "S" && puesto !== "LL") return;
+
+        if(!datosProcesados[tc]) datosProcesados[tc] = {};
+        if(!datosProcesados[tc][dorsal]) datosProcesados[tc][dorsal] = {S:null, LL:null};
+
+        datosProcesados[tc][dorsal][puesto] = hora;
+      });
+    });
   });
+}
+
+// ================== PINTAR TABLA TIEMPOS ==================
+function pintarTablaTiempos(){
+  const tbody = $("tablaTiempos").querySelector("tbody");
+  tbody.innerHTML = "";
+
+  const tramoSel = $("selectorTramo").value || "TODOS";
+  const filas = [];
+
+  Object.keys(datosProcesados).forEach(tc=>{
+    if(tramoSel !== "TODOS" && tc !== tramoSel) return;
+
+    Object.keys(datosProcesados[tc]).forEach(dorsal=>{
+      const s = datosProcesados[tc][dorsal].S;
+      const ll = datosProcesados[tc][dorsal].LL;
+      if(!s || !ll) return;
+
+      const t1 = new Date("1970-01-01T"+s);
+      const t2 = new Date("1970-01-01T"+ll);
+      const diff = t2 - t1;
+      if(diff < 0) return;
+
+      filas.push({ dorsal, tiempoMS: diff });
+    });
+  });
+
+  filas.sort((a,b)=>a.tiempoMS-b.tiempoMS);
+
+  filas.forEach(f=>{
+    const d = inscritosCache?.[f.dorsal] || {};
+    const piloto = d.piloto || "-";
+    const copiloto = d.copiloto || "-";
+
+    let diff = f.tiempoMS;
+    const ms = diff % 1000; diff = Math.floor(diff/1000);
+    const ss = diff % 60; diff = Math.floor(diff/60);
+    const mm = diff % 60;
+    const hh = Math.floor(diff/60);
+
+    const tiempo =
+      String(hh).padStart(2,"0")+":"+
+      String(mm).padStart(2,"0")+":"+
+      String(ss).padStart(2,"0")+"."+
+      String(ms).padStart(3,"0");
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${f.dorsal}</td>
+      <td>${piloto}</td>
+      <td>${copiloto}</td>
+      <td><b>${tiempo}</b></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  $("estadoTiempos").textContent = `Mostrando ${filas.length} tiempos con S y LL completos.`;
+}
+
+// ================== INSCRITOS: CARGAR / PINTAR ==================
+async function cargarInscritos(id){
+  const snap = await get(ref(db, `IDs/${id}/inscritos`));
+  inscritosCache = snap.val() || {};
+  pintarTablaInscritos();
+}
+
+function pintarTablaInscritos(){
+  const tbody = $("tablaInscritos").querySelector("tbody");
+  tbody.innerHTML = "";
+
+  const filtro = ($("buscarDorsal").value || "").toLowerCase();
+
+  Object.keys(inscritosCache).forEach(num=>{
+    const ins = inscritosCache[num] || {};
+    const texto = `${num} ${ins.piloto||""} ${ins.copiloto||""} ${ins.vehiculo||""}`.toLowerCase();
+    if(filtro && !texto.includes(filtro)) return;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${num}</td>
+      <td>${ins.piloto||""}</td>
+      <td>${ins.copiloto||""}</td>
+      <td>${ins.vehiculo||""}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.filtrarInscritos = function(){
+  pintarTablaInscritos();
 };
 
-document.getElementById("selectorID").addEventListener("change",cargarTramos);
+// ================== INSCRITOS: GUARDAR ==================
+window.guardarInscrito = async function(){
+  const id = $("idInscritos").value;
+  const num = $("i_num").value.trim();
+  if(!id || !num){ alert("Falta ID o Nº"); return; }
 
-/* ================= INICIO ================= */
+  const data = {
+    concursante: $("i_con").value,
+    piloto: $("i_pil").value,
+    copiloto: $("i_cop").value,
+    vehiculo: $("i_veh").value,
+    gr_cera: $("i_gcera").value,
+    cat_cera: $("i_ccera").value,
+    gr_cara: $("i_gcara").value,
+    cat_cara: $("i_ccara").value,
+    traccion: $("i_trac").value,
+    trofeo: $("i_trof").value,
+    prioridad: $("i_prio").value
+  };
 
-cargarIDs();
+  await set(ref(db, `IDs/${id}/inscritos/${num}`), data);
+
+  $("estadoInscritos").textContent = "✅ Guardado";
+  // limpiar inputs excepto el ID
+  ["i_num","i_con","i_pil","i_cop","i_veh","i_gcera","i_ccera","i_gcara","i_ccara","i_trac","i_trof","i_prio"].forEach(x=>$(x).value="");
+
+  // recargar tabla
+  await cargarInscritos(id);
+};
+
+// ================== INICIO ==================
+mostrarPanel("tiempos");
 
 </script>
 </body>

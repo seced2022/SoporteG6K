@@ -62,7 +62,9 @@ th,td{
   background:#ff9800 !important;
 }
 
-.small{ font-size:12px; opacity:.85; }
+.small{ font-size:12px; opacity:.9; white-space:pre-wrap; }
+.err{ color:#ffb3b3; }
+.ok{ color:#b7ffb7; }
 </style>
 </head>
 
@@ -167,7 +169,7 @@ const firebaseConfig = {
   authDomain: "heideggerp6v2.firebaseapp.com",
   databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "heideggerp6v2",
-  storageBucket: "heideggerp6v2.appspot.com",
+  storageBucket: "heideggerp6v2.firebasestorage.app",
   messagingSenderId: "186503733",
   appId: "1:186503733:web:ac4e03f579a8e101f5177c"
 };
@@ -183,7 +185,13 @@ window.mostrarPanel = function(id){
   document.getElementById(id).classList.add("active");
 };
 
-/* ================= CREAR RALLY (IGUAL + TC0 con CH1..CH15) ================= */
+function setEstadoRally(msg, isErr=false){
+  const el = $("estadoRally");
+  el.className = "small " + (isErr ? "err" : "ok");
+  el.textContent = msg;
+}
+
+/* ================= CREAR RALLY (MISMO FLUJO QUE TE FUNCIONA) ================= */
 window.crearRally = async function(){
   const id = $("nuevoID").value.trim();
   const num = parseInt($("numTramos").value);
@@ -193,39 +201,57 @@ window.crearRally = async function(){
     return;
   }
 
-  const idRef = ref(db,"IDs/"+id);
-  const snap = await get(idRef);
+  try{
+    const idRef = ref(db,"IDs/"+id);
+    const snap = await get(idRef);
 
-  if(snap.exists()){
-    alert("Ese ID ya existe");
-    return;
+    if(snap.exists()){
+      alert("Ese ID ya existe");
+      return;
+    }
+
+    // 1) ✅ Crear ID base (esto es lo que te funcionaba)
+    await set(idRef,{
+      creado: Date.now(),
+      inscritos: {}
+    });
+
+    // 2) ✅ Crear estructura (update multipath)
+    const updates = {};
+
+    // TC0 + CH1..CH15
+    for(let ch=1; ch<=15; ch++){
+      updates[`IDs/${id}/tramos/TC0/puestos/CH${ch}/tiempos`] = {};
+    }
+
+    // TC1..TCn con S/LL (igual que antes)
+    for(let i=1;i<=num;i++){
+      const tc = "TC"+i;
+      updates[`IDs/${id}/tramos/${tc}/puestos/S/tiempos`] = {};
+      updates[`IDs/${id}/tramos/${tc}/puestos/LL/tiempos`] = {};
+    }
+
+    // OJO: update al root
+    await update(ref(db), updates);
+
+    setEstadoRally(
+      `✅ Rally creado COMPLETO\nID: ${id}\nTC0: CH1..CH15\nTC1..TC${num}: S/LL`,
+      false
+    );
+
+    $("nuevoID").value = "";
+
+  }catch(e){
+    console.error("ERROR crearRally:", e);
+    // Esto es lo que necesitas ver para saber por qué NO se crean los tramos
+    setEstadoRally(
+      "❌ Error creando rally (los tramos NO se han creado)\n" +
+      (e?.code ? `code: ${e.code}\n` : "") +
+      (e?.message || e),
+      true
+    );
+    alert("Error creando rally. Mira el mensaje en pantalla y la consola (F12).");
   }
-
-  // 1) Crear ID base (NO TOCAR)
-  await set(idRef,{
-    creado: Date.now(),
-    inscritos: {}
-  });
-
-  // 2) Crear estructura de tramos (MISMA RUTA)
-  const updates = {};
-
-  // ✅ TC0 + CH1..CH15
-  for(let ch=1; ch<=15; ch++){
-    updates[`IDs/${id}/tramos/TC0/puestos/CH${ch}/tiempos`] = {};
-  }
-
-  // ✅ TC1..TCn (NO CAMBIAR)
-  for(let i=1;i<=num;i++){
-    const tc = "TC"+i;
-    updates[`IDs/${id}/tramos/${tc}/puestos/S/tiempos`] = {};
-    updates[`IDs/${id}/tramos/${tc}/puestos/LL/tiempos`] = {};
-  }
-
-  await update(ref(db), updates);
-
-  $("estadoRally").innerHTML="✅ Rally creado (TC0: CH1..CH15) + TC1..TC"+num+" (S/LL)";
-  $("nuevoID").value="";
 };
 
 /* ================= CARGAR IDS (EN VIVO) ================= */
@@ -316,7 +342,7 @@ function cargarTramosSelector(tramosData){
   else sel.value = (tcs.length ? tcs[0] : "TODOS");
 }
 
-/* ================= PROCESAR Y PINTAR TIEMPOS ================= */
+/* ================= TIEMPOS (igual que tenías) ================= */
 function parseHoraToMs(h){
   if(!h || typeof h !== "string") return null;
   const parts = h.split(":");
@@ -411,7 +437,7 @@ function pintarTablaTiempos(){
   });
 
   $("estadoTiempos").textContent =
-    `Mostrando ${filas.length} dorsales (se actualiza en vivo con S y LL).`;
+    `Mostrando ${filas.length} dorsales (S+LL).`;
 }
 
 /* ================= INSCRITOS (BÁSICO) ================= */
@@ -428,7 +454,6 @@ window.guardarInscrito = async function(){
 
   await set(ref(db, `IDs/${id}/inscritos/${num}`), data);
   $("estadoInscritos").textContent = "✅ Guardado";
-
   ["i_num","i_pil","i_cop","i_veh"].forEach(x=>$(x).value="");
 };
 

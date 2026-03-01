@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Control Rally V2</title>
+<title>Control Rally V1</title>
 
 <style>
 body{
@@ -106,12 +106,31 @@ th,td{
   align-items:center;
   justify-content:space-between;
   gap:10px;
+  flex-wrap:wrap;
 }
 
 .tc-title{
   font-weight:bold;
   font-size:14px;
 }
+
+.tc-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.tc-add{
+  background:#2a2a2a;
+  border:1px solid #444;
+  color:#fff;
+  padding:4px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.tc-add:hover{ border-color:#00aa44; }
 
 .tc-close{
   background:#2a2a2a;
@@ -123,9 +142,7 @@ th,td{
   font-weight:bold;
 }
 
-.tc-close:hover{
-  border-color:#e10600;
-}
+.tc-close:hover{ border-color:#e10600; }
 
 .tc-card table{ margin-top:8px; }
 
@@ -238,7 +255,7 @@ th,td{
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, update, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, update, onValue, get, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
@@ -268,6 +285,21 @@ function estadoRally(msg, isErr=false){
 
 function tiemposInit(){
   return { "_init": true };
+}
+
+/* ================= VALIDACIONES ================= */
+function esHoraValida(h){
+  return /^\d{2}:\d{2}:\d{2}\.\d{3}$/.test(h);
+}
+function normalizarDorsal(d){
+  return (d || "").trim();
+}
+function esDorsalValidoSoloNumeros(d){
+  return /^\d+$/.test(d);
+}
+function esSinDorsal(d){
+  const x = (d || "").trim().toUpperCase();
+  return x === "" || x === "SIN DORSAL" || x === "SINDORSAL" || x === "0";
 }
 
 /* ================= CREAR RALLY (NO TOCAR) ================= */
@@ -335,11 +367,10 @@ window.crearRally = async function(){
   }
 };
 
-/* ================= CARGAR IDS (EN VIVO) ================= */
+/* ================= DATOS EN VIVO ================= */
 let currentID = null;
 let currentTramosData = {};
 let inscritosCache = {};
-
 const selectedTCs = new Set();
 
 onValue(ref(db,"IDs"), snap=>{
@@ -395,7 +426,6 @@ $("idInscritos").addEventListener("change", ()=>{
   engancharInscritos($("idInscritos").value);
 });
 
-/* ================= LECTURA EN VIVO: TRAMOS + INSCRITOS ================= */
 function engancharLecturasDeID(id){
   onValue(ref(db, `IDs/${id}/tramos`), snap=>{
     currentTramosData = snap.val() || {};
@@ -413,7 +443,7 @@ function engancharInscritos(id){
   });
 }
 
-/* ================= TIEMPOS: botones y recuadros ================= */
+/* ================= TIEMPOS UI ================= */
 function obtenerListaTCs(){
   return Object.keys(currentTramosData || {})
     .filter(k => k !== "TC0")
@@ -442,7 +472,6 @@ function construirBotonesTC(){
     b.onclick = ()=>{
       if(selectedTCs.has(tc)) selectedTCs.delete(tc);
       else selectedTCs.add(tc);
-
       construirBotonesTC();
       pintarRecuadrosTC();
     };
@@ -451,7 +480,7 @@ function construirBotonesTC(){
   });
 
   $("estadoTiempos").textContent =
-    `ID ${currentID || ""} · TCs: ${tcs.length} · Abiertos: ${selectedTCs.size} · (click en Dorsal / S / LL para editar)`;
+    `ID ${currentID || ""} · TCs: ${tcs.length} · Abiertos: ${selectedTCs.size} · (click en Dorsal / S / LL para editar o crear cuando hay —)`;
 }
 
 function pintarRecuadrosTC(){
@@ -476,6 +505,15 @@ function pintarRecuadrosTC(){
     title.className = "tc-title";
     title.textContent = `Clasificación ${tc}`;
 
+    const actions = document.createElement("div");
+    actions.className = "tc-actions";
+
+    const add = document.createElement("button");
+    add.className = "tc-add";
+    add.textContent = "➕ Añadir dorsal";
+    add.title = "Crear manualmente un dorsal en este TC (con S y/o LL)";
+    add.onclick = ()=> añadirDorsalManual(tc);
+
     const close = document.createElement("button");
     close.className = "tc-close";
     close.textContent = "✕";
@@ -485,8 +523,11 @@ function pintarRecuadrosTC(){
       pintarRecuadrosTC();
     };
 
+    actions.appendChild(add);
+    actions.appendChild(close);
+
     header.appendChild(title);
-    header.appendChild(close);
+    header.appendChild(actions);
     card.appendChild(header);
 
     const table = document.createElement("table");
@@ -514,25 +555,22 @@ function pintarRecuadrosTC(){
   });
 }
 
-/* ================= EDITAR: VALIDACIONES ================= */
-function esHoraValida(h){
-  return /^\d{2}:\d{2}:\d{2}\.\d{3}$/.test(h);
+/* ================= CREAR/EDITAR REGISTROS EN FIREBASE ================= */
+async function crearPasoManual(tc, tipo, dorsal, hora){
+  const id = $("selectorID").value;
+
+  const baseRef = ref(db, `IDs/${id}/tramos/${tc}/puestos/${tipo}/tiempos`);
+  const nuevoRef = push(baseRef);
+
+  await set(nuevoRef, {
+    dorsal: dorsal,
+    puesto: tipo,       // "S" o "LL"
+    tiempo: hora,       // "HH:MM:SS.mmm"
+    manual: true,
+    timestamp: Date.now()
+  });
 }
 
-function normalizarDorsal(d){
-  return (d || "").trim();
-}
-
-function esDorsalValidoSoloNumeros(d){
-  return /^\d+$/.test(d);
-}
-
-function esSinDorsal(d){
-  const x = (d || "").trim().toUpperCase();
-  return x === "" || x === "SIN DORSAL" || x === "SINDORSAL" || x === "0";
-}
-
-/* ================= EDITAR HORA (S/LL) ================= */
 async function editarHora(tc, tipo, keyActual, horaActual){
   if(!keyActual){
     alert("No se puede editar: no se encontró la clave del registro (push id).");
@@ -543,7 +581,6 @@ async function editarHora(tc, tipo, keyActual, horaActual){
   if(nueva === null) return;
 
   const h = (nueva || "").trim();
-
   if(!esHoraValida(h)){
     alert("Formato inválido. Usa HH:MM:SS.mmm (ej: 00:12:34.567)");
     return;
@@ -551,18 +588,11 @@ async function editarHora(tc, tipo, keyActual, horaActual){
 
   const id = $("selectorID").value;
   const ruta = `IDs/${id}/tramos/${tc}/puestos/${tipo}/tiempos/${keyActual}`;
-
-  await update(ref(db, ruta), {
-    tiempo: h,
-    editado: Date.now()
-  });
+  await update(ref(db, ruta), { tiempo: h, editado: Date.now() });
 }
 
-/* ================= ASIGNAR / EDITAR DORSAL (solo números) ================= */
 async function asignarDorsal(tc, dorsalNuevo, sKey, llKey){
   const id = $("selectorID").value;
-
-  // Para evitar problemas de reglas, actualizamos "dentro" del ID con rutas relativas
   const updatesRel = {};
   const now = Date.now();
 
@@ -580,12 +610,10 @@ async function asignarDorsal(tc, dorsalNuevo, sKey, llKey){
 
 async function editarDorsalFila(tc, dorsalActual, sKey, llKey){
   const sugerido = esSinDorsal(dorsalActual) ? "" : dorsalActual;
-
   const nueva = prompt(`Asignar / editar DORSAL en ${tc}\nSolo números (ej: 12)`, sugerido);
   if(nueva === null) return;
 
   const d = normalizarDorsal(nueva);
-
   if(!esDorsalValidoSoloNumeros(d)){
     alert("Dorsal inválido. Debe ser SOLO números (ej: 12).");
     return;
@@ -599,7 +627,42 @@ async function editarDorsalFila(tc, dorsalActual, sKey, llKey){
   await asignarDorsal(tc, d, sKey, llKey);
 }
 
-/* ================= TIEMPOS: UTILIDADES ================= */
+/* NUEVO: añadir dorsal desde cero (con S y/o LL) */
+async function añadirDorsalManual(tc){
+  const dorsal = normalizarDorsal(prompt(`Añadir dorsal MANUAL en ${tc}\nSolo números`, ""));
+  if(!dorsal) return;
+  if(!esDorsalValidoSoloNumeros(dorsal)){
+    alert("Dorsal inválido. Debe ser SOLO números.");
+    return;
+  }
+
+  const s = prompt(`Hora SALIDA (S) para dorsal ${dorsal} en ${tc}\nFormato HH:MM:SS.mmm\n(Deja vacío si no quieres crear S)`, "");
+  if(s === null) return;
+  const sVal = (s || "").trim();
+
+  const ll = prompt(`Hora LLEGADA (LL) para dorsal ${dorsal} en ${tc}\nFormato HH:MM:SS.mmm\n(Deja vacío si no quieres crear LL)`, "");
+  if(ll === null) return;
+  const llVal = (ll || "").trim();
+
+  if(!sVal && !llVal){
+    alert("No se creó nada: debes poner al menos S o LL.");
+    return;
+  }
+  if(sVal && !esHoraValida(sVal)){
+    alert("Formato inválido en S. Usa HH:MM:SS.mmm");
+    return;
+  }
+  if(llVal && !esHoraValida(llVal)){
+    alert("Formato inválido en LL. Usa HH:MM:SS.mmm");
+    return;
+  }
+
+  // Creamos los registros que correspondan
+  if(sVal) await crearPasoManual(tc, "S", dorsal, sVal);
+  if(llVal) await crearPasoManual(tc, "LL", dorsal, llVal);
+}
+
+/* ================= TIEMPOS: utilidades de cálculo ================= */
 function parseHoraToMs(h){
   if(!h || typeof h !== "string") return null;
   const parts = h.split(":");
@@ -622,7 +685,7 @@ function msToDur(ms){
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${String(msec).padStart(3,"0")}`;
 }
 
-/* ================= TIEMPOS: TABLA POR TC (con edición de dorsal/hora) ================= */
+/* ================= TIEMPOS: TABLA POR TC ================= */
 function pintarTablaDeUnTC(tc, tbody, infoEl){
   tbody.innerHTML = "";
 
@@ -633,10 +696,9 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
     return;
   }
 
-  // dorsales numéricos: dorsal -> {S:{hora,key,ms}, LL:{hora,key,ms}}
+  // dorsales numéricos
   const porDorsal = {};
-
-  // sin dorsal: acumulamos arrays para emparejar por orden temporal
+  // sin dorsal -> arrays
   const sinDorsalS = [];
   const sinDorsalLL = [];
 
@@ -649,34 +711,29 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
       const hora = reg?.tiempo;
       const puesto = reg?.puesto;
 
-      // ignorar _init y registros sin hora
+      // ignorar _init y sin hora
       if(!hora) return;
       if(puesto !== "S" && puesto !== "LL") return;
 
       const ms = parseHoraToMs(hora);
 
-      // Si dorsal es numérico lo tratamos normal
       if(esDorsalValidoSoloNumeros(dorsalRaw)){
         if(!porDorsal[dorsalRaw]) porDorsal[dorsalRaw] = { S:null, LL:null };
         porDorsal[dorsalRaw][puesto] = { hora, key, ms };
-        return;
+      }else{
+        const item = { dorsal: dorsalRaw || "SIN DORSAL", hora, key, ms };
+        if(puesto === "S") sinDorsalS.push(item);
+        else sinDorsalLL.push(item);
       }
-
-      // Si no es numérico, lo tratamos como SIN DORSAL (para poder asignar luego)
-      const item = { dorsal: dorsalRaw || "SIN DORSAL", hora, key, ms };
-
-      if(puesto === "S") sinDorsalS.push(item);
-      else sinDorsalLL.push(item);
     });
   });
 
-  // Emparejar SIN DORSAL por orden temporal (S[0] con LL[0], etc.)
   sinDorsalS.sort((a,b)=> (a.ms ?? 9e18) - (b.ms ?? 9e18));
   sinDorsalLL.sort((a,b)=> (a.ms ?? 9e18) - (b.ms ?? 9e18));
 
   const filas = [];
 
-  // Filas normales por dorsal numérico
+  // normales
   Object.keys(porDorsal).forEach(dorsal=>{
     const sObj = porDorsal[dorsal].S;
     const llObj = porDorsal[dorsal].LL;
@@ -713,13 +770,12 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
     });
   });
 
-  // Filas SIN DORSAL emparejadas (pueden salir varias)
+  // sin dorsal emparejadas por orden temporal
   const maxSD = Math.max(sinDorsalS.length, sinDorsalLL.length);
   for(let i=0; i<maxSD; i++){
     const sObj = sinDorsalS[i] || null;
     const llObj = sinDorsalLL[i] || null;
 
-    const dorsalMostrar = "SIN DORSAL";
     const s = sObj?.hora || "—";
     const ll = llObj?.hora || "—";
     const msS = sObj?.ms ?? parseHoraToMs(sObj?.hora);
@@ -739,12 +795,11 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
       }
     }
 
-    // Para ordenar los SIN DORSAL al final (pero manteniendo lógica)
-    // Si quieres que entren en la clasificación, quita esto:
+    // al final
     const ordenFinal = orden + 5000000000;
 
     filas.push({
-      dorsal: dorsalMostrar,
+      dorsal: "SIN DORSAL",
       s,
       ll,
       sKey: sObj?.key || null,
@@ -755,41 +810,68 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
     });
   }
 
-  // Orden por mejor tiempo
   filas.sort((a,b)=>a.orden-b.orden);
 
-  // Pintar
   filas.forEach(f=>{
     const tr = document.createElement("tr");
 
-    // DORSAL (click para asignar / editar)
+    // DORSAL: click asignar/editar (solo números)
     const tdD = document.createElement("td");
     tdD.textContent = f.dorsal;
-
     tdD.style.cursor = (f.sKey || f.llKey) ? "pointer" : "default";
     tdD.title = "Click para asignar/editar dorsal (solo números)";
     if(f.sinDorsal) tdD.classList.add("sin-dorsal");
+    tdD.onclick = ()=> editarDorsalFila(tc, f.dorsal, f.sKey, f.llKey);
 
-    tdD.onclick = ()=>{
-      editarDorsalFila(tc, f.dorsal, f.sKey, f.llKey);
-    };
-
-    // SALIDA (click editar)
+    // SALIDA: editar si existe, si es — crear manual
     const tdS = document.createElement("td");
     tdS.textContent = f.s;
-    tdS.style.cursor = f.sKey ? "pointer" : "default";
-    tdS.title = f.sKey ? "Click para editar salida" : "";
-    tdS.onclick = ()=>{
-      if(f.sKey) editarHora(tc, "S", f.sKey, f.s === "—" ? "" : f.s);
+    tdS.style.cursor = "pointer";
+    tdS.title = f.sKey ? "Click para editar salida" : "Click para crear salida manual (si hay —)";
+
+    tdS.onclick = async ()=>{
+      if(f.sKey){
+        editarHora(tc, "S", f.sKey, f.s === "—" ? "" : f.s);
+        return;
+      }
+      // crear manual si no existe
+      if(!esDorsalValidoSoloNumeros(f.dorsal)){
+        alert("Primero asigna un dorsal numérico a esta fila.");
+        return;
+      }
+      const nueva = prompt(`Crear SALIDA (S) manual en ${tc}\nFormato: HH:MM:SS.mmm`, "");
+      if(nueva === null) return;
+      const h = (nueva || "").trim();
+      if(!esHoraValida(h)){
+        alert("Formato inválido. Usa HH:MM:SS.mmm (ej: 00:12:34.567)");
+        return;
+      }
+      await crearPasoManual(tc, "S", f.dorsal, h);
     };
 
-    // LLEGADA (click editar)
+    // LLEGADA: editar si existe, si es — crear manual
     const tdLL = document.createElement("td");
     tdLL.textContent = f.ll;
-    tdLL.style.cursor = f.llKey ? "pointer" : "default";
-    tdLL.title = f.llKey ? "Click para editar llegada" : "";
-    tdLL.onclick = ()=>{
-      if(f.llKey) editarHora(tc, "LL", f.llKey, f.ll === "—" ? "" : f.ll);
+    tdLL.style.cursor = "pointer";
+    tdLL.title = f.llKey ? "Click para editar llegada" : "Click para crear llegada manual (si hay —)";
+
+    tdLL.onclick = async ()=>{
+      if(f.llKey){
+        editarHora(tc, "LL", f.llKey, f.ll === "—" ? "" : f.ll);
+        return;
+      }
+      if(!esDorsalValidoSoloNumeros(f.dorsal)){
+        alert("Primero asigna un dorsal numérico a esta fila.");
+        return;
+      }
+      const nueva = prompt(`Crear LLEGADA (LL) manual en ${tc}\nFormato: HH:MM:SS.mmm`, "");
+      if(nueva === null) return;
+      const h = (nueva || "").trim();
+      if(!esHoraValida(h)){
+        alert("Formato inválido. Usa HH:MM:SS.mmm (ej: 00:12:34.567)");
+        return;
+      }
+      await crearPasoManual(tc, "LL", f.dorsal, h);
     };
 
     const tdT = document.createElement("td");

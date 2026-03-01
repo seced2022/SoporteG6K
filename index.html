@@ -83,7 +83,8 @@ th,td{
   ID Rally:
   <input id="nuevoID">
 
-  Nº Tramos:
+  <!-- (Opcional) Aclaro que aquí son TC1..TCn, porque TC0 se crea siempre -->
+  Nº Tramos (TC1..TCn):
   <input id="numTramos" type="number" min="1" value="1">
 
   <button class="btn" onclick="crearRally()">Confirmar</button>
@@ -167,7 +168,7 @@ const firebaseConfig = {
   authDomain: "heideggerp6v2.firebaseapp.com",
   databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "heideggerp6v2",
-  storageBucket: "heideggerp6v2.appspot.com",
+  storageBucket: "heideggerp6v2.firebasestorage.app",
   messagingSenderId: "186503733",
   appId: "1:186503733:web:ac4e03f579a8e101f5177c"
 };
@@ -183,13 +184,13 @@ window.mostrarPanel = function(id){
   document.getElementById(id).classList.add("active");
 };
 
-/* ================= CREAR RALLY (MISMO QUE EL TUYO + TRAMOS CORRECTOS) ================= */
+/* ================= CREAR RALLY (TC0 con CH + TC1..TCn con S/LL) ================= */
 window.crearRally = async function(){
   const id = $("nuevoID").value.trim();
-  const num = parseInt($("numTramos").value);
+  const num = parseInt($("numTramos").value); // TC1..TCn (TC0 siempre)
 
   if(!id || !num || num < 1){
-    alert("Pon un ID válido y nº de tramos");
+    alert("Pon un ID válido y nº de tramos (mínimo 1)");
     return;
   }
 
@@ -201,22 +202,30 @@ window.crearRally = async function(){
     return;
   }
 
-  // 1) Crear ID base (esto te funciona)
+  // 1) Crear ID base (esto ya te funciona)
   await set(idRef,{
     creado: Date.now(),
     inscritos: {}
   });
 
-  // 2) Crear estructura de tramos EXACTA (como ID90)
+  // 2) Crear estructura:
+  //    - TC0: solo CH/tiempos
+  //    - TC1..TCn: S/tiempos y LL/tiempos
   const updates = {};
+
+  // ✅ TC0 con CH
+  updates[`IDs/${id}/tramos/TC0/puestos/CH/tiempos`] = {};
+
+  // ✅ TC1..TCn con S y LL
   for(let i=1;i<=num;i++){
     const tc = "TC"+i;
     updates[`IDs/${id}/tramos/${tc}/puestos/S/tiempos`] = {};
     updates[`IDs/${id}/tramos/${tc}/puestos/LL/tiempos`] = {};
   }
+
   await update(ref(db), updates);
 
-  $("estadoRally").innerHTML="✅ Rally creado correctamente";
+  $("estadoRally").innerHTML="✅ Rally creado: TC0(CH) + TC1..TC"+num+" (S/LL)";
   $("nuevoID").value="";
 };
 
@@ -246,11 +255,9 @@ onValue(ref(db,"IDs"), snap=>{
   if(prevT && ids.includes(prevT)) selT.value = prevT;
   if(prevI && ids.includes(prevI)) selI.value = prevI;
 
-  // si no hay seleccionado, el primero
   if(!selT.value && ids.length) selT.value = ids[0];
   if(!selI.value && ids.length) selI.value = ids[0];
 
-  // enganchar lectura al ID de tiempos
   if(selT.value && selT.value !== currentID){
     currentID = selT.value;
     engancharLecturasDeID(currentID);
@@ -260,7 +267,6 @@ onValue(ref(db,"IDs"), snap=>{
   }
 });
 
-/* ================= CAMBIOS DE SELECTORES ================= */
 $("selectorID").addEventListener("change", ()=>{
   currentID = $("selectorID").value;
   engancharLecturasDeID(currentID);
@@ -276,22 +282,20 @@ $("idInscritos").addEventListener("change", ()=>{
 
 /* ================= LECTURA EN VIVO: TRAMOS + INSCRITOS ================= */
 function engancharLecturasDeID(id){
-  // leer tramos en vivo
   onValue(ref(db, `IDs/${id}/tramos`), snap=>{
     currentTramosData = snap.val() || {};
     cargarTramosSelector(currentTramosData);
     pintarTablaTiempos();
   });
 
-  // leer inscritos en vivo (por si quieres nombres después)
   engancharInscritos(id);
 }
 
 function engancharInscritos(id){
   onValue(ref(db, `IDs/${id}/inscritos`), snap=>{
     inscritosCache = snap.val() || {};
-    pintarTablaInscritos();     // refresca tabla inscritos
-    pintarTablaTiempos();       // por si luego metes nombres
+    pintarTablaInscritos();
+    // tiempos se queda igual (no tocamos nada)
   });
 }
 
@@ -302,22 +306,18 @@ function cargarTramosSelector(tramosData){
 
   const tcs = Object.keys(tramosData || {});
   sel.innerHTML = "";
-
-  // opción TODOS
   sel.innerHTML += `<option value="TODOS">TODOS</option>`;
 
   tcs.forEach(tc=>{
     sel.innerHTML += `<option value="${tc}">${tc}</option>`;
   });
 
-  // mantener selección si existe
   if(prev && [...sel.options].some(o=>o.value===prev)) sel.value = prev;
   else sel.value = (tcs.length ? tcs[0] : "TODOS");
 }
 
-/* ================= PROCESAR Y PINTAR TIEMPOS ================= */
+/* ================= TIEMPOS (NO TOCAMOS LÓGICA ACTUAL) ================= */
 function parseHoraToMs(h){
-  // h: "12:45:08.769"
   if(!h || typeof h !== "string") return null;
   const parts = h.split(":");
   if(parts.length !== 3) return null;
@@ -345,8 +345,6 @@ function pintarTablaTiempos(){
   tbody.innerHTML = "";
 
   const tramoSel = $("selectorTramo").value || "TODOS";
-
-  // datos: { dorsal: {S:hora, LL:hora} }
   const acumulado = {};
 
   const tramosAProcesar = tramoSel === "TODOS"
@@ -365,7 +363,7 @@ function pintarTablaTiempos(){
       Object.values(tiempos).forEach(reg=>{
         const dorsal = reg?.dorsal;
         const hora = reg?.tiempo;
-        const puesto = reg?.puesto; // "S" o "LL"
+        const puesto = reg?.puesto;
         if(!dorsal || !hora) return;
         if(puesto !== "S" && puesto !== "LL") return;
 
@@ -375,7 +373,6 @@ function pintarTablaTiempos(){
     });
   });
 
-  // convertir a filas
   const filas = Object.keys(acumulado).map(dorsal=>{
     const s = acumulado[dorsal].S;
     const ll = acumulado[dorsal].LL;
@@ -400,7 +397,6 @@ function pintarTablaTiempos(){
     return { dorsal, s: s || "—", ll: ll || "—", tiempo, orden };
   });
 
-  // ordenar: primero los que tienen tiempo, por mejor; luego los demás
   filas.sort((a,b)=>a.orden-b.orden);
 
   filas.forEach(f=>{
@@ -415,7 +411,7 @@ function pintarTablaTiempos(){
   });
 
   $("estadoTiempos").textContent =
-    `Mostrando ${filas.length} dorsales (se actualiza en vivo con S y LL).`;
+    `Mostrando ${filas.length} dorsales (S+LL). TC0(CH) no afecta aquí.`;
 }
 
 /* ================= INSCRITOS (BÁSICO) ================= */
@@ -432,13 +428,10 @@ window.guardarInscrito = async function(){
 
   await set(ref(db, `IDs/${id}/inscritos/${num}`), data);
   $("estadoInscritos").textContent = "✅ Guardado";
-
   ["i_num","i_pil","i_cop","i_veh"].forEach(x=>$(x).value="");
 };
 
-window.filtrarInscritos = function(){
-  pintarTablaInscritos();
-};
+window.filtrarInscritos = function(){ pintarTablaInscritos(); };
 
 function pintarTablaInscritos(){
   const tbody = $("tablaInscritos").querySelector("tbody");

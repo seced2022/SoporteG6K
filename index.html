@@ -61,8 +61,6 @@ th,td{
 .repetido{
   background:#ff9800 !important;
 }
-
-.small{ font-size:12px; opacity:.85; }
 </style>
 </head>
 
@@ -88,7 +86,7 @@ th,td{
 
   <button class="btn" onclick="crearRally()">Confirmar</button>
 
-  <div id="estadoRally" class="small"></div>
+  <div id="estadoRally"></div>
 </div>
 
 <!-- ================= INSCRITOS ================= -->
@@ -110,7 +108,6 @@ th,td{
 
   <br><br>
   <button class="btn" onclick="guardarInscrito()">Guardar</button>
-  <span id="estadoInscritos" class="small"></span>
 
   <table id="tablaInscritos">
     <thead>
@@ -139,15 +136,13 @@ th,td{
     <thead>
       <tr>
         <th>Nº</th>
-        <th>Salida</th>
-        <th>Llegada</th>
+        <th>Piloto</th>
+        <th>Copiloto</th>
         <th>Tiempo</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
-
-  <div id="estadoTiempos" class="small"></div>
 </div>
 
 <!-- ================= FIREBASE ================= -->
@@ -175,18 +170,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const $ = (id)=>document.getElementById(id);
-
 /* ================= PANEL ================= */
+
 window.mostrarPanel = function(id){
   document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 };
 
-/* ================= CREAR RALLY (MISMO QUE EL TUYO + TRAMOS CORRECTOS) ================= */
+/* ================= CREAR RALLY ================= */
+
 window.crearRally = async function(){
-  const id = $("nuevoID").value.trim();
-  const num = parseInt($("numTramos").value);
+
+  const id = document.getElementById("nuevoID").value.trim();
+  const num = parseInt(document.getElementById("numTramos").value);
 
   if(!id || !num || num < 1){
     alert("Pon un ID válido y nº de tramos");
@@ -201,269 +197,46 @@ window.crearRally = async function(){
     return;
   }
 
-  // 1) Crear ID base (esto te funciona)
+  // 1️⃣ Crear ID base (esto ya te funcionaba)
   await set(idRef,{
     creado: Date.now(),
     inscritos: {}
   });
 
-  // 2) Crear estructura de tramos EXACTA (como ID90)
+  // 2️⃣ Crear estructura completa de tramos
   const updates = {};
   for(let i=1;i<=num;i++){
     const tc = "TC"+i;
+
     updates[`IDs/${id}/tramos/${tc}/puestos/S/tiempos`] = {};
     updates[`IDs/${id}/tramos/${tc}/puestos/LL/tiempos`] = {};
   }
+
   await update(ref(db), updates);
 
-  $("estadoRally").innerHTML="✅ Rally creado correctamente";
-  $("nuevoID").value="";
+  document.getElementById("estadoRally").innerHTML="✅ Rally creado correctamente";
+  document.getElementById("nuevoID").value="";
 };
 
-/* ================= CARGAR IDS (EN VIVO) ================= */
-let currentID = null;
-let currentTramosData = {};
-let inscritosCache = {};
+/* ================= CARGAR IDS ================= */
 
 onValue(ref(db,"IDs"), snap=>{
-  const data = snap.val() || {};
-  const ids = Object.keys(data);
+  if(!snap.exists()) return;
 
-  const selT = $("selectorID");
-  const selI = $("idInscritos");
+  const ids = Object.keys(snap.val());
 
-  const prevT = selT.value;
-  const prevI = selI.value;
+  const sel1 = document.getElementById("selectorID");
+  const sel2 = document.getElementById("idInscritos");
 
-  selT.innerHTML="";
-  selI.innerHTML="";
+  sel1.innerHTML="";
+  sel2.innerHTML="";
 
   ids.forEach(id=>{
-    selT.innerHTML += `<option>${id}</option>`;
-    selI.innerHTML += `<option>${id}</option>`;
+    sel1.innerHTML+=`<option>${id}</option>`;
+    sel2.innerHTML+=`<option>${id}</option>`;
   });
-
-  if(prevT && ids.includes(prevT)) selT.value = prevT;
-  if(prevI && ids.includes(prevI)) selI.value = prevI;
-
-  // si no hay seleccionado, el primero
-  if(!selT.value && ids.length) selT.value = ids[0];
-  if(!selI.value && ids.length) selI.value = ids[0];
-
-  // enganchar lectura al ID de tiempos
-  if(selT.value && selT.value !== currentID){
-    currentID = selT.value;
-    engancharLecturasDeID(currentID);
-  } else if(selT.value && !currentID){
-    currentID = selT.value;
-    engancharLecturasDeID(currentID);
-  }
 });
 
-/* ================= CAMBIOS DE SELECTORES ================= */
-$("selectorID").addEventListener("change", ()=>{
-  currentID = $("selectorID").value;
-  engancharLecturasDeID(currentID);
-});
-
-$("selectorTramo").addEventListener("change", ()=>{
-  pintarTablaTiempos();
-});
-
-$("idInscritos").addEventListener("change", ()=>{
-  engancharInscritos($("idInscritos").value);
-});
-
-/* ================= LECTURA EN VIVO: TRAMOS + INSCRITOS ================= */
-function engancharLecturasDeID(id){
-  // leer tramos en vivo
-  onValue(ref(db, `IDs/${id}/tramos`), snap=>{
-    currentTramosData = snap.val() || {};
-    cargarTramosSelector(currentTramosData);
-    pintarTablaTiempos();
-  });
-
-  // leer inscritos en vivo (por si quieres nombres después)
-  engancharInscritos(id);
-}
-
-function engancharInscritos(id){
-  onValue(ref(db, `IDs/${id}/inscritos`), snap=>{
-    inscritosCache = snap.val() || {};
-    pintarTablaInscritos();     // refresca tabla inscritos
-    pintarTablaTiempos();       // por si luego metes nombres
-  });
-}
-
-/* ================= CARGAR SELECTOR TRAMOS ================= */
-function cargarTramosSelector(tramosData){
-  const sel = $("selectorTramo");
-  const prev = sel.value;
-
-  const tcs = Object.keys(tramosData || {});
-  sel.innerHTML = "";
-
-  // opción TODOS
-  sel.innerHTML += `<option value="TODOS">TODOS</option>`;
-
-  tcs.forEach(tc=>{
-    sel.innerHTML += `<option value="${tc}">${tc}</option>`;
-  });
-
-  // mantener selección si existe
-  if(prev && [...sel.options].some(o=>o.value===prev)) sel.value = prev;
-  else sel.value = (tcs.length ? tcs[0] : "TODOS");
-}
-
-/* ================= PROCESAR Y PINTAR TIEMPOS ================= */
-function parseHoraToMs(h){
-  // h: "12:45:08.769"
-  if(!h || typeof h !== "string") return null;
-  const parts = h.split(":");
-  if(parts.length !== 3) return null;
-  const hh = parseInt(parts[0],10);
-  const mm = parseInt(parts[1],10);
-  const ssParts = parts[2].split(".");
-  const ss = parseInt(ssParts[0],10);
-  const ms = parseInt(ssParts[1] || "0",10);
-  if([hh,mm,ss,ms].some(n=>Number.isNaN(n))) return null;
-  return (((hh*60+mm)*60)+ss)*1000 + ms;
-}
-
-function msToDur(ms){
-  if(ms == null) return "";
-  let diff = ms;
-  const msec = diff % 1000; diff = Math.floor(diff/1000);
-  const s = diff % 60; diff = Math.floor(diff/60);
-  const m = diff % 60;
-  const h = Math.floor(diff/60);
-  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${String(msec).padStart(3,"0")}`;
-}
-
-function pintarTablaTiempos(){
-  const tbody = $("tablaTiempos").querySelector("tbody");
-  tbody.innerHTML = "";
-
-  const tramoSel = $("selectorTramo").value || "TODOS";
-
-  // datos: { dorsal: {S:hora, LL:hora} }
-  const acumulado = {};
-
-  const tramosAProcesar = tramoSel === "TODOS"
-    ? Object.keys(currentTramosData || {})
-    : [tramoSel];
-
-  tramosAProcesar.forEach(tc=>{
-    const tramo = currentTramosData?.[tc];
-    const puestos = tramo?.puestos;
-    if(!puestos) return;
-
-    ["S","LL"].forEach(tipo=>{
-      const tiempos = puestos?.[tipo]?.tiempos;
-      if(!tiempos) return;
-
-      Object.values(tiempos).forEach(reg=>{
-        const dorsal = reg?.dorsal;
-        const hora = reg?.tiempo;
-        const puesto = reg?.puesto; // "S" o "LL"
-        if(!dorsal || !hora) return;
-        if(puesto !== "S" && puesto !== "LL") return;
-
-        if(!acumulado[dorsal]) acumulado[dorsal] = { S:null, LL:null };
-        acumulado[dorsal][puesto] = hora;
-      });
-    });
-  });
-
-  // convertir a filas
-  const filas = Object.keys(acumulado).map(dorsal=>{
-    const s = acumulado[dorsal].S;
-    const ll = acumulado[dorsal].LL;
-
-    const msS = parseHoraToMs(s);
-    const msLL = parseHoraToMs(ll);
-
-    let tiempo = "EN CURSO";
-    let orden = 9999999999;
-
-    if(msS != null && msLL != null){
-      const diff = msLL - msS;
-      if(diff >= 0){
-        tiempo = msToDur(diff);
-        orden = diff;
-      }else{
-        tiempo = "ERROR";
-        orden = 9999999998;
-      }
-    }
-
-    return { dorsal, s: s || "—", ll: ll || "—", tiempo, orden };
-  });
-
-  // ordenar: primero los que tienen tiempo, por mejor; luego los demás
-  filas.sort((a,b)=>a.orden-b.orden);
-
-  filas.forEach(f=>{
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${f.dorsal}</td>
-      <td>${f.s}</td>
-      <td>${f.ll}</td>
-      <td><b>${f.tiempo}</b></td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  $("estadoTiempos").textContent =
-    `Mostrando ${filas.length} dorsales (se actualiza en vivo con S y LL).`;
-}
-
-/* ================= INSCRITOS (BÁSICO) ================= */
-window.guardarInscrito = async function(){
-  const id = $("idInscritos").value;
-  const num = $("i_num").value.trim();
-  if(!id || !num){ alert("Falta ID o Nº"); return; }
-
-  const data = {
-    piloto: $("i_pil").value,
-    copiloto: $("i_cop").value,
-    vehiculo: $("i_veh").value
-  };
-
-  await set(ref(db, `IDs/${id}/inscritos/${num}`), data);
-  $("estadoInscritos").textContent = "✅ Guardado";
-
-  ["i_num","i_pil","i_cop","i_veh"].forEach(x=>$(x).value="");
-};
-
-window.filtrarInscritos = function(){
-  pintarTablaInscritos();
-};
-
-function pintarTablaInscritos(){
-  const tbody = $("tablaInscritos").querySelector("tbody");
-  tbody.innerHTML = "";
-  const filtro = ($("buscarDorsal").value || "").toLowerCase();
-
-  Object.keys(inscritosCache || {}).forEach(num=>{
-    const d = inscritosCache[num] || {};
-    const texto = `${num} ${d.piloto||""} ${d.copiloto||""} ${d.vehiculo||""}`.toLowerCase();
-    if(filtro && !texto.includes(filtro)) return;
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${num}</td>
-      <td>${d.piloto||""}</td>
-      <td>${d.copiloto||""}</td>
-      <td>${d.vehiculo||""}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-/* ================= INICIO ================= */
-mostrarPanel("tiempos");
 </script>
-
 </body>
 </html>

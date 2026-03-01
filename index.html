@@ -12,13 +12,11 @@ body{
   margin:0;
   padding:20px;
 }
-
 .menu{
   display:flex;
   gap:10px;
   margin-bottom:20px;
 }
-
 .btn{
   background:#e10600;
   border:none;
@@ -28,7 +26,6 @@ body{
   cursor:pointer;
   font-weight:bold;
 }
-
 .panel{
   display:none;
   background:#1b1b1b;
@@ -36,35 +33,24 @@ body{
   border-radius:8px;
   margin-bottom:20px;
 }
+.panel.active{ display:block; }
+input,select{ padding:6px; margin:4px; }
+table{ width:100%; border-collapse:collapse; margin-top:10px; }
+th,td{ border:1px solid #333; padding:6px; text-align:center; }
+.repetido{ background:#ff9800 !important; }
 
-.panel.active{
-  display:block;
-}
-
-input,select{
-  padding:6px;
-  margin:4px;
-}
-
-table{
-  width:100%;
-  border-collapse:collapse;
+.small{ font-size:12px; opacity:.9; }
+.status{
   margin-top:10px;
+  padding:10px;
+  border-radius:8px;
+  background:#0f2a12;
+  border:1px solid #2f6b3a;
+  white-space:pre-wrap;
 }
-
-th,td{
-  border:1px solid #333;
-  padding:6px;
-  text-align:center;
-}
-
-.repetido{
-  background:#ff9800 !important;
-}
-
-.small{
-  font-size:12px;
-  opacity:.85;
+.status.err{
+  background:#2a0f0f;
+  border-color:#8a2d2d;
 }
 </style>
 </head>
@@ -90,8 +76,9 @@ th,td{
   <input id="numTramos" type="number" min="1" value="1">
 
   <button class="btn" onclick="crearRally()">Confirmar</button>
+  <button class="btn" onclick="testEscritura()">Test escritura</button>
 
-  <div id="estadoRally" class="small"></div>
+  <div id="estadoRally" class="status small" style="display:none;"></div>
 </div>
 
 <!-- ================= INSCRITOS ================= -->
@@ -161,24 +148,16 @@ th,td{
   <div class="small" id="estadoTiempos"></div>
 </div>
 
-<!-- ================= FIREBASE ================= -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getDatabase,
-  ref,
-  set,
-  update,
-  onValue,
-  get
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, update, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
   authDomain: "heideggerp6v2.firebaseapp.com",
   databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "heideggerp6v2",
-  storageBucket: "heideggerp6v2.firebasestorage.app",
+  storageBucket: "heideggerp6v2.appspot.com",
   messagingSenderId: "186503733",
   appId: "1:186503733:web:ac4e03f579a8e101f5177c"
 };
@@ -188,12 +167,9 @@ const db = getDatabase(app);
 
 const $ = (id)=>document.getElementById(id);
 
-// ====== ESTADO ======
-let idsCache = [];
 let currentID = null;
-
 let inscritosCache = {};
-let datosProcesados = {}; // { TCx: { dorsal: {S,LL} } }
+let datosProcesados = {}; // {TC: {dorsal:{S,LL}}}
 
 // ================= PANEL =================
 window.mostrarPanel = function(id){
@@ -201,21 +177,27 @@ window.mostrarPanel = function(id){
   document.getElementById(id).classList.add("active");
 };
 
-// ================= CARGAR IDS (en vivo) =================
-onValue(ref(db,"IDs"), (snap)=>{
+function setEstado(msg, isErr=false){
+  const el = $("estadoRally");
+  el.style.display = "block";
+  el.classList.toggle("err", !!isErr);
+  el.textContent = msg;
+}
+
+// ================= CARGAR IDS (EN VIVO) =================
+onValue(ref(db, "IDs"), (snap)=>{
   const data = snap.val() || {};
-  idsCache = Object.keys(data);
+  const ids = Object.keys(data);
 
   const selT = $("selectorID");
   const selI = $("idInscritos");
-
   const prevT = selT.value;
   const prevI = selI.value;
 
   selT.innerHTML = "";
   selI.innerHTML = "";
 
-  idsCache.forEach(id=>{
+  ids.forEach(id=>{
     const o1=document.createElement("option");
     o1.value=id; o1.textContent=id;
     selT.appendChild(o1);
@@ -225,114 +207,133 @@ onValue(ref(db,"IDs"), (snap)=>{
     selI.appendChild(o2);
   });
 
-  if(prevT && idsCache.includes(prevT)) selT.value = prevT;
-  if(prevI && idsCache.includes(prevI)) selI.value = prevI;
+  if(prevT && data[prevT]) selT.value = prevT;
+  if(prevI && data[prevI]) selI.value = prevI;
 
-  if(!selT.value && idsCache.length) selT.value = idsCache[0];
-  if(!selI.value && idsCache.length) selI.value = idsCache[0];
+  if(!selT.value && ids.length) selT.value = ids[0];
+  if(!selI.value && ids.length) selI.value = ids[0];
 
   if(selT.value && selT.value !== currentID){
     currentID = selT.value;
-    engancharListenersDeID(currentID);
+    engancharID(currentID);
   } else if(selT.value && !currentID){
     currentID = selT.value;
-    engancharListenersDeID(currentID);
+    engancharID(currentID);
   }
 });
 
 $("selectorID").addEventListener("change", ()=>{
   currentID = $("selectorID").value;
-  engancharListenersDeID(currentID);
+  engancharID(currentID);
 });
-
 $("idInscritos").addEventListener("change", ()=>{
   cargarInscritos($("idInscritos").value);
 });
+$("selectorTramo").addEventListener("change", pintarTablaTiempos);
 
-$("selectorTramo").addEventListener("change", ()=>{
-  pintarTablaTiempos();
-});
-
-// ================= LISTENERS POR ID =================
-function engancharListenersDeID(id){
-  // tramos (en vivo)
+function engancharID(id){
   onValue(ref(db, `IDs/${id}/tramos`), (snap)=>{
     const tramosData = snap.val() || {};
-    procesarTramos(tramosData);
     cargarSelectorTramos(tramosData);
+    procesarTramos(tramosData);
     pintarTablaTiempos();
   });
 
-  // inscritos (en vivo)
   onValue(ref(db, `IDs/${id}/inscritos`), (snap)=>{
     inscritosCache = snap.val() || {};
     pintarTablaTiempos();
     if($("idInscritos").value === id) pintarTablaInscritos();
   });
 
-  // para el panel inscritos
-  if($("idInscritos").value === id){
-    cargarInscritos(id);
-  }
+  if($("idInscritos").value === id) cargarInscritos(id);
 }
 
-// ================= CREAR RALLY (ESTRUCTURA CORRECTA) =================
+// ================= TEST ESCRITURA =================
+window.testEscritura = async function(){
+  try{
+    const p = `debug_web_write/${Date.now()}`;
+    await set(ref(db, p), { ok:true, t: Date.now() });
+    setEstado("✅ Test escritura OK\nEscrito en:\n"+p, false);
+  }catch(e){
+    console.error(e);
+    setEstado("❌ Test escritura FALLÓ\n"+(e?.message || e), true);
+  }
+};
+
+// ================= CREAR RALLY (2 FASES: SIEMPRE CREA EL ID) =================
 window.crearRally = async function(){
   const id = $("nuevoID").value.trim();
   const num = parseInt($("numTramos").value);
 
   if(!id || !num || num < 1){
-    alert("Pon un ID y nº de tramos válido");
+    alert("Pon un ID y nº tramos válido");
     return;
   }
 
-  const idRef = ref(db,"IDs/"+id);
-  const snap = await get(idRef);
+  try{
+    const idRef = ref(db, "IDs/"+id);
+    const snap = await get(idRef);
+    if(snap.exists()){
+      alert("Ese ID ya existe");
+      return;
+    }
 
-  if(snap.exists()){
-    alert("Ese ID ya existe");
-    return;
+    // FASE 1: crear ID mínimo (como tu versión que SÍ funcionaba)
+    await set(idRef, {
+      creado: Date.now(),
+      inscritos: {},
+      tramos: {}
+    });
+
+    // FASE 2: intentar crear estructura completa por rutas
+    const updates = {};
+    for(let i=1;i<=num;i++){
+      const tc = `TC${i}`;
+      updates[`IDs/${id}/tramos/${tc}/puestos/S/tiempos`] = {};
+      updates[`IDs/${id}/tramos/${tc}/puestos/LL/tiempos`] = {};
+    }
+
+    try{
+      await update(ref(db), updates);
+      setEstado(`✅ Rally creado COMPLETO\nIDs/${id}\nTramos: ${num}\n(con puestos S/LL y tiempos)`, false);
+    }catch(e2){
+      // si falla esta fase, el ID ya existe (no pierdes nada)
+      console.error("ERROR fase2 estructura:", e2);
+      setEstado(
+        "⚠️ ID creado, pero NO se pudo crear la estructura completa.\n"+
+        "Esto ES reglas/validación.\n\n"+
+        "✅ ID creado: IDs/"+id+"\n"+
+        "❌ Error estructura: "+(e2?.message || e2),
+        true
+      );
+    }
+
+    $("nuevoID").value = "";
+    $("selectorID").value = id;
+    $("idInscritos").value = id;
+    currentID = id;
+    engancharID(id);
+    mostrarPanel("tiempos");
+
+  }catch(e){
+    console.error("ERROR crearRally:", e);
+    setEstado("❌ NO se pudo crear el ID\n"+(e?.message || e), true);
   }
-
-  // ✅ CREAR POR RUTAS (MUY COMPATIBLE)
-  const updates = {};
-  updates[`IDs/${id}/inscritos`] = {};
-  updates[`IDs/${id}/tramos`] = {};
-
-  for(let i=1;i<=num;i++){
-    const tc = `TC${i}`;
-    updates[`IDs/${id}/tramos/${tc}/puestos/S/tiempos`] = {};
-    updates[`IDs/${id}/tramos/${tc}/puestos/LL/tiempos`] = {};
-  }
-
-  await update(ref(db), updates);
-
-  $("estadoRally").textContent = "✅ Rally creado con TC + puestos S/LL + tiempos";
-  $("nuevoID").value="";
-
-  // seleccionar el nuevo ID
-  $("selectorID").value = id;
-  $("idInscritos").value = id;
-  currentID = id;
-  engancharListenersDeID(id);
-  mostrarPanel("tiempos");
 };
 
-// ================= SELECTOR TRAMOS =================
+// ================= TRAMOS SELECTOR =================
 function cargarSelectorTramos(tramosData){
   const sel = $("selectorTramo");
   const prev = sel.value;
 
   sel.innerHTML = "";
-  const optAll = document.createElement("option");
-  optAll.value = "TODOS";
-  optAll.textContent = "TODOS";
-  sel.appendChild(optAll);
+  const all = document.createElement("option");
+  all.value = "TODOS"; all.textContent = "TODOS";
+  sel.appendChild(all);
 
   Object.keys(tramosData).forEach(tc=>{
     const opt = document.createElement("option");
-    opt.value = tc;
-    opt.textContent = tc;
+    opt.value = tc; opt.textContent = tc;
     sel.appendChild(opt);
   });
 
@@ -343,15 +344,12 @@ function cargarSelectorTramos(tramosData){
 // ================= PROCESAR TRAMOS (S/LL) =================
 function procesarTramos(tramosData){
   datosProcesados = {};
-
   Object.keys(tramosData).forEach(tc=>{
-    const tramo = tramosData[tc];
-    const puestos = tramo?.puestos;
+    const puestos = tramosData[tc]?.puestos;
     if(!puestos) return;
 
     ["S","LL"].forEach(tipo=>{
-      const nodo = puestos[tipo];
-      const tiempos = nodo?.tiempos;
+      const tiempos = puestos?.[tipo]?.tiempos;
       if(!tiempos) return;
 
       Object.values(tiempos).forEach(reg=>{
@@ -370,7 +368,7 @@ function procesarTramos(tramosData){
   });
 }
 
-// ================= PINTAR TABLA TIEMPOS =================
+// ================= TABLA TIEMPOS =================
 function pintarTablaTiempos(){
   const tbody = $("tablaTiempos").querySelector("tbody");
   tbody.innerHTML = "";
@@ -424,7 +422,7 @@ function pintarTablaTiempos(){
     tbody.appendChild(tr);
   });
 
-  $("estadoTiempos").textContent = `Mostrando ${filas.length} tiempos (S + LL completos).`;
+  $("estadoTiempos").textContent = `Mostrando ${filas.length} tiempos (S+LL completos).`;
 }
 
 // ================= INSCRITOS =================
@@ -456,9 +454,7 @@ function pintarTablaInscritos(){
   });
 }
 
-window.filtrarInscritos = function(){
-  pintarTablaInscritos();
-};
+window.filtrarInscritos = function(){ pintarTablaInscritos(); };
 
 window.guardarInscrito = async function(){
   const id = $("idInscritos").value;
@@ -482,8 +478,6 @@ window.guardarInscrito = async function(){
   await set(ref(db, `IDs/${id}/inscritos/${num}`), data);
 
   $("estadoInscritos").textContent = "✅ Guardado";
-
-  // limpiar inputs (menos el selector)
   ["i_num","i_con","i_pil","i_cop","i_veh","i_gcera","i_ccera","i_gcara","i_ccara","i_trac","i_trof","i_prio"].forEach(x=>$(x).value="");
 
   await cargarInscritos(id);

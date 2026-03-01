@@ -285,19 +285,20 @@ window.crearRally = async function(){
       tramos: {}
     });
 
-    // FASE 2: intentar crear estructura completa por rutas
+    // ✅ FASE 2 (CAMBIO ÚNICO): crear estructura completa, evitando nodos vacíos
+    // Creamos un __init dentro de tiempos para que RTDB no "pode" la rama.
     const updates = {};
     for(let i=1;i<=num;i++){
       const tc = `TC${i}`;
-      updates[`IDs/${id}/tramos/${tc}/puestos/S/tiempos`] = {};
-      updates[`IDs/${id}/tramos/${tc}/puestos/LL/tiempos`] = {};
+
+      updates[`IDs/${id}/tramos/${tc}/puestos/S/tiempos/__init`]  = true;
+      updates[`IDs/${id}/tramos/${tc}/puestos/LL/tiempos/__init`] = true;
     }
 
     try{
       await update(ref(db), updates);
       setEstado(`✅ Rally creado COMPLETO\nIDs/${id}\nTramos: ${num}\n(con puestos S/LL y tiempos)`, false);
     }catch(e2){
-      // si falla esta fase, el ID ya existe (no pierdes nada)
       console.error("ERROR fase2 estructura:", e2);
       setEstado(
         "⚠️ ID creado, pero NO se pudo crear la estructura completa.\n"+

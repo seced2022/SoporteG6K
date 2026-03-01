@@ -83,8 +83,7 @@ th,td{
   ID Rally:
   <input id="nuevoID">
 
-  <!-- (Opcional) Aclaro que aquí son TC1..TCn, porque TC0 se crea siempre -->
-  Nº Tramos (TC1..TCn):
+  Nº Tramos:
   <input id="numTramos" type="number" min="1" value="1">
 
   <button class="btn" onclick="crearRally()">Confirmar</button>
@@ -168,7 +167,7 @@ const firebaseConfig = {
   authDomain: "heideggerp6v2.firebaseapp.com",
   databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "heideggerp6v2",
-  storageBucket: "heideggerp6v2.firebasestorage.app",
+  storageBucket: "heideggerp6v2.appspot.com",
   messagingSenderId: "186503733",
   appId: "1:186503733:web:ac4e03f579a8e101f5177c"
 };
@@ -184,13 +183,13 @@ window.mostrarPanel = function(id){
   document.getElementById(id).classList.add("active");
 };
 
-/* ================= CREAR RALLY (TC0 con CH + TC1..TCn con S/LL) ================= */
+/* ================= CREAR RALLY (IGUAL + TC0 con CH1..CH15) ================= */
 window.crearRally = async function(){
   const id = $("nuevoID").value.trim();
-  const num = parseInt($("numTramos").value); // TC1..TCn (TC0 siempre)
+  const num = parseInt($("numTramos").value);
 
   if(!id || !num || num < 1){
-    alert("Pon un ID válido y nº de tramos (mínimo 1)");
+    alert("Pon un ID válido y nº de tramos");
     return;
   }
 
@@ -202,21 +201,21 @@ window.crearRally = async function(){
     return;
   }
 
-  // 1) Crear ID base (esto ya te funciona)
+  // 1) Crear ID base (NO TOCAR)
   await set(idRef,{
     creado: Date.now(),
     inscritos: {}
   });
 
-  // 2) Crear estructura:
-  //    - TC0: solo CH/tiempos
-  //    - TC1..TCn: S/tiempos y LL/tiempos
+  // 2) Crear estructura de tramos (MISMA RUTA)
   const updates = {};
 
-  // ✅ TC0 con CH
-  updates[`IDs/${id}/tramos/TC0/puestos/CH/tiempos`] = {};
+  // ✅ TC0 + CH1..CH15
+  for(let ch=1; ch<=15; ch++){
+    updates[`IDs/${id}/tramos/TC0/puestos/CH${ch}/tiempos`] = {};
+  }
 
-  // ✅ TC1..TCn con S y LL
+  // ✅ TC1..TCn (NO CAMBIAR)
   for(let i=1;i<=num;i++){
     const tc = "TC"+i;
     updates[`IDs/${id}/tramos/${tc}/puestos/S/tiempos`] = {};
@@ -225,7 +224,7 @@ window.crearRally = async function(){
 
   await update(ref(db), updates);
 
-  $("estadoRally").innerHTML="✅ Rally creado: TC0(CH) + TC1..TC"+num+" (S/LL)";
+  $("estadoRally").innerHTML="✅ Rally creado (TC0: CH1..CH15) + TC1..TC"+num+" (S/LL)";
   $("nuevoID").value="";
 };
 
@@ -267,6 +266,7 @@ onValue(ref(db,"IDs"), snap=>{
   }
 });
 
+/* ================= CAMBIOS DE SELECTORES ================= */
 $("selectorID").addEventListener("change", ()=>{
   currentID = $("selectorID").value;
   engancharLecturasDeID(currentID);
@@ -295,7 +295,7 @@ function engancharInscritos(id){
   onValue(ref(db, `IDs/${id}/inscritos`), snap=>{
     inscritosCache = snap.val() || {};
     pintarTablaInscritos();
-    // tiempos se queda igual (no tocamos nada)
+    pintarTablaTiempos();
   });
 }
 
@@ -316,7 +316,7 @@ function cargarTramosSelector(tramosData){
   else sel.value = (tcs.length ? tcs[0] : "TODOS");
 }
 
-/* ================= TIEMPOS (NO TOCAMOS LÓGICA ACTUAL) ================= */
+/* ================= PROCESAR Y PINTAR TIEMPOS ================= */
 function parseHoraToMs(h){
   if(!h || typeof h !== "string") return null;
   const parts = h.split(":");
@@ -411,7 +411,7 @@ function pintarTablaTiempos(){
   });
 
   $("estadoTiempos").textContent =
-    `Mostrando ${filas.length} dorsales (S+LL). TC0(CH) no afecta aquí.`;
+    `Mostrando ${filas.length} dorsales (se actualiza en vivo con S y LL).`;
 }
 
 /* ================= INSCRITOS (BÁSICO) ================= */
@@ -428,10 +428,13 @@ window.guardarInscrito = async function(){
 
   await set(ref(db, `IDs/${id}/inscritos/${num}`), data);
   $("estadoInscritos").textContent = "✅ Guardado";
+
   ["i_num","i_pil","i_cop","i_veh"].forEach(x=>$(x).value="");
 };
 
-window.filtrarInscritos = function(){ pintarTablaInscritos(); };
+window.filtrarInscritos = function(){
+  pintarTablaInscritos();
+};
 
 function pintarTablaInscritos(){
   const tbody = $("tablaInscritos").querySelector("tbody");

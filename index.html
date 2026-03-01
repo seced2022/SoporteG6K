@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Control Rally2</title>
+<title>Control Rally V1</title>
 
 <style>
 body{
@@ -156,7 +156,6 @@ th,td{
   <div id="estadoTiempos" class="small"></div>
 </div>
 
-<!-- ================= FIREBASE ================= -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -194,10 +193,15 @@ function estadoRally(msg, isErr=false){
   el.textContent = msg;
 }
 
-/* ================= CREAR RALLY (FIJO Y ROBUSTO) =================
+// placeholder para que Firebase "vea" el nodo
+function tiemposInit(){
+  return { "_init": true };
+}
+
+/* ================= CREAR RALLY (ROBUSTO Y VISIBLE EN FIREBASE) =================
    - TC0: CH1..CH15 (solo paso)
    - TC1..TCn: S/LL (crono)
-   ✅ Escribe TRAMOS dentro de IDs/{id} (NO en root)
+   ✅ Crea nodos con _init para que NO queden vacíos y se vean siempre
 */
 window.crearRally = async function(){
   const id = $("nuevoID").value.trim();
@@ -217,19 +221,20 @@ window.crearRally = async function(){
       return;
     }
 
-    // 1) Crear base (como siempre)
+    // 1) Crear base
     await set(idRef, {
-      creado: Date.now(),
-      inscritos: {}
+      creado: Date.now()
+      // NO meto inscritos:{} para evitar que aparezca un dorsal raro,
+      // la app/web lo creará cuando guardes inscritos.
     });
 
-    // 2) Construir tramos como OBJETO (más compatible con reglas)
+    // 2) Construir estructura completa
     const tramos = {};
 
     // TC0 con 15 CH
     tramos["TC0"] = { puestos: {} };
     for(let ch=1; ch<=15; ch++){
-      tramos["TC0"].puestos["CH"+ch] = { tiempos: {} };
+      tramos["TC0"].puestos["CH"+ch] = { tiempos: tiemposInit() };
     }
 
     // TC1..TCn con S/LL
@@ -237,22 +242,21 @@ window.crearRally = async function(){
       const tc = "TC"+i;
       tramos[tc] = {
         puestos: {
-          S:  { tiempos: {} },
-          LL: { tiempos: {} }
+          S:  { tiempos: tiemposInit() },
+          LL: { tiempos: tiemposInit() }
         }
       };
     }
 
-    // ✅ Muy importante: update dentro del ID, no en la raíz
+    // 3) Escribir TRAMOS dentro del ID
     await update(idRef, { tramos });
 
-    // 3) Verificación real
+    // 4) Verificación real
     const check = await get(ref(db, `IDs/${id}/tramos`));
     if(!check.exists()){
       estadoRally(
-        "❌ Se creó el ID pero NO existe 'tramos'.\n" +
-        "Esto suele ser por caché o reglas.\n" +
-        "Prueba modo incógnito y CTRL+F5.",
+        "❌ Se creó el ID pero NO existe 'tramos' en Firebase.\n" +
+        "Prueba CTRL+F5 / incógnito.",
         true
       );
       return;
@@ -276,7 +280,7 @@ window.crearRally = async function(){
       (e?.message || String(e)),
       true
     );
-    alert("Error creando rally. Mira el mensaje en Crear Rally y la consola (F12).");
+    alert("Error creando rally. Mira el mensaje y la consola (F12).");
   }
 };
 
@@ -331,14 +335,12 @@ $("idInscritos").addEventListener("change", ()=>{
   engancharInscritos($("idInscritos").value);
 });
 
-/* ================= LECTURA EN VIVO: TRAMOS + INSCRITOS ================= */
 function engancharLecturasDeID(id){
   onValue(ref(db, `IDs/${id}/tramos`), snap=>{
     currentTramosData = snap.val() || {};
     cargarTramosSelector(currentTramosData);
     pintarTablaTiempos();
   });
-
   engancharInscritos(id);
 }
 
@@ -350,22 +352,19 @@ function engancharInscritos(id){
   });
 }
 
-/* ================= CARGAR SELECTOR TRAMOS ================= */
 function cargarTramosSelector(tramosData){
   const sel = $("selectorTramo");
   const prev = sel.value;
 
   const tcs = Object.keys(tramosData || {});
   sel.innerHTML = `<option value="TODOS">TODOS</option>`;
-  tcs.forEach(tc=>{
-    sel.innerHTML += `<option value="${tc}">${tc}</option>`;
-  });
+  tcs.forEach(tc=> sel.innerHTML += `<option value="${tc}">${tc}</option>`);
 
   if(prev && [...sel.options].some(o=>o.value===prev)) sel.value = prev;
   else sel.value = (tcs.length ? tcs[0] : "TODOS");
 }
 
-/* ================= TIEMPOS (igual que tu lógica) ================= */
+/* ================= TIEMPOS ================= */
 function parseHoraToMs(h){
   if(!h || typeof h !== "string") return null;
   const parts = h.split(":");
@@ -410,6 +409,7 @@ function pintarTablaTiempos(){
       if(!tiempos) return;
 
       Object.values(tiempos).forEach(reg=>{
+        // ignora _init (boolean)
         const dorsal = reg?.dorsal;
         const hora = reg?.tiempo;
         const puesto = reg?.puesto;
@@ -463,7 +463,7 @@ function pintarTablaTiempos(){
     `Mostrando ${filas.length} dorsales (se actualiza en vivo con S y LL).`;
 }
 
-/* ================= INSCRITOS (BÁSICO) ================= */
+/* ================= INSCRITOS ================= */
 window.guardarInscrito = async function(){
   const id = $("idInscritos").value;
   const num = $("i_num").value.trim();

@@ -64,6 +64,70 @@ th,td{
 }
 .ok{ color:#b7ffb7; }
 .err{ color:#ffb3b3; }
+
+/* ======= TIEMPOS: botones TC y recuadros ======= */
+.tc-buttons{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:8px 0 12px 0;
+}
+
+.tc-btn{
+  background:#2a2a2a;
+  border:1px solid #444;
+  color:#fff;
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.tc-btn.active{
+  background:#e10600;
+  border-color:#e10600;
+}
+
+.tc-cards{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.tc-card{
+  border:1px solid #333;
+  border-radius:10px;
+  padding:10px;
+  background:#151515;
+}
+
+.tc-card-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.tc-title{
+  font-weight:bold;
+  font-size:14px;
+}
+
+.tc-close{
+  background:#2a2a2a;
+  border:1px solid #444;
+  color:#fff;
+  padding:4px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.tc-close:hover{
+  border-color:#e10600;
+}
+
+.tc-card table{ margin-top:8px; }
 </style>
 </head>
 
@@ -134,20 +198,11 @@ th,td{
   ID:
   <select id="selectorID"></select>
 
-  Tramo:
-  <select id="selectorTramo"></select>
+  <!-- NUEVO: botones por TC -->
+  <div id="tcButtons" class="tc-buttons"></div>
 
-  <table id="tablaTiempos">
-    <thead>
-      <tr>
-        <th>Nº</th>
-        <th>Salida</th>
-        <th>Llegada</th>
-        <th>Tiempo</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <!-- NUEVO: recuadros por TC seleccionado -->
+  <div id="tcCards" class="tc-cards"></div>
 
   <div id="estadoTiempos" class="small"></div>
 </div>
@@ -213,7 +268,7 @@ function tiemposInit(){
   return { "_init": true };
 }
 
-/* ================= CREAR RALLY (NO TOCAR LO QUE YA FUNCIONA) ================= */
+/* ================= CREAR RALLY (NO TOCAR) ================= */
 window.crearRally = async function(){
   const id = $("nuevoID").value.trim();
   const num = parseInt($("numTramos").value, 10);
@@ -232,19 +287,15 @@ window.crearRally = async function(){
       return;
     }
 
-    // 1) Crear base
     await set(idRef, { creado: Date.now() });
 
-    // 2) Construir estructura completa
     const tramos = {};
 
-    // TC0 con 15 CH
     tramos["TC0"] = { puestos: {} };
     for(let ch=1; ch<=15; ch++){
       tramos["TC0"].puestos["CH"+ch] = { tiempos: tiemposInit() };
     }
 
-    // TC1..TCn con S/LL
     for(let i=1; i<=num; i++){
       const tc = "TC"+i;
       tramos[tc] = {
@@ -287,15 +338,15 @@ let currentID = null;
 let currentTramosData = {};
 let inscritosCache = {};
 
+// TCs seleccionados (solo UI tiempos)
+const selectedTCs = new Set();
+
 onValue(ref(db,"IDs"), snap=>{
   const data = snap.val() || {};
   const ids = Object.keys(data);
 
-  // Selectores existentes
   const selT = $("selectorID");
   const selI = $("idInscritos");
-
-  // Selector nuevo CH (otro select para no tocar el existente)
   const selCH_ID = $("selectorID_CH");
 
   const prevT = selT.value;
@@ -320,49 +371,35 @@ onValue(ref(db,"IDs"), snap=>{
   if(!selI.value && ids.length) selI.value = ids[0];
   if(!selCH_ID.value && ids.length) selCH_ID.value = ids[0];
 
-  // Enganchar lecturas al ID de "Tiempos" (no lo cambiamos)
   if(selT.value && selT.value !== currentID){
     currentID = selT.value;
+    selectedTCs.clear();
     engancharLecturasDeID(currentID);
   } else if(selT.value && !currentID){
     currentID = selT.value;
+    selectedTCs.clear();
     engancharLecturasDeID(currentID);
   }
 
-  // Pintar CH con el ID seleccionado en CH
   pintarCH();
 });
 
 $("selectorID").addEventListener("change", ()=>{
   currentID = $("selectorID").value;
+  selectedTCs.clear();
   engancharLecturasDeID(currentID);
-});
-
-$("selectorTramo").addEventListener("change", ()=>{
-  pintarTablaTiempos();
 });
 
 $("idInscritos").addEventListener("change", ()=>{
   engancharInscritos($("idInscritos").value);
 });
 
-/* ======== NUEVO: CH selectores ======== */
-$("selectorID_CH").addEventListener("change", ()=>{
-  // Para CH leemos el tramos del ID seleccionado, sin tocar el resto:
-  // Simplemente hacemos un get/ onValue separado para CH, sin interferir.
-  engancharTramosSoloParaCH($("selectorID_CH").value);
-});
-
-$("selectorCH").addEventListener("change", ()=>{
-  pintarCH();
-});
-
-/* ================= LECTURA EN VIVO: TRAMOS + INSCRITOS (como estaba) ================= */
+/* ================= LECTURA EN VIVO: TRAMOS + INSCRITOS ================= */
 function engancharLecturasDeID(id){
   onValue(ref(db, `IDs/${id}/tramos`), snap=>{
     currentTramosData = snap.val() || {};
-    cargarTramosSelector(currentTramosData);
-    pintarTablaTiempos();
+    construirBotonesTC();
+    pintarRecuadrosTC();
   });
 
   engancharInscritos(id);
@@ -372,24 +409,111 @@ function engancharInscritos(id){
   onValue(ref(db, `IDs/${id}/inscritos`), snap=>{
     inscritosCache = snap.val() || {};
     pintarTablaInscritos();
-    pintarTablaTiempos();
   });
 }
 
-/* ================= Selectores de tramo (sin tocar) ================= */
-function cargarTramosSelector(tramosData){
-  const sel = $("selectorTramo");
-  const prev = sel.value;
-
-  const tcs = Object.keys(tramosData || {});
-  sel.innerHTML = `<option value="TODOS">TODOS</option>`;
-  tcs.forEach(tc=> sel.innerHTML += `<option value="${tc}">${tc}</option>`);
-
-  if(prev && [...sel.options].some(o=>o.value===prev)) sel.value = prev;
-  else sel.value = (tcs.length ? tcs[0] : "TODOS");
+/* ================= TIEMPOS: botones y recuadros ================= */
+function obtenerListaTCs(){
+  return Object.keys(currentTramosData || {})
+    .filter(k => k !== "TC0")
+    .sort((a,b)=>{
+      const na = parseInt(a.replace(/\D+/g,"")||"0",10);
+      const nb = parseInt(b.replace(/\D+/g,"")||"0",10);
+      return na - nb;
+    });
 }
 
-/* ================= TIEMPOS (NO TOCAR) ================= */
+function construirBotonesTC(){
+  const cont = $("tcButtons");
+  cont.innerHTML = "";
+
+  const tcs = obtenerListaTCs();
+
+  // si no hay seleccionados, selecciona el primero para que se vea algo
+  if(selectedTCs.size === 0 && tcs.length > 0){
+    selectedTCs.add(tcs[0]);
+  }
+
+  tcs.forEach(tc=>{
+    const b = document.createElement("button");
+    b.className = "tc-btn" + (selectedTCs.has(tc) ? " active" : "");
+    b.textContent = tc;
+
+    b.onclick = ()=>{
+      if(selectedTCs.has(tc)) selectedTCs.delete(tc);
+      else selectedTCs.add(tc);
+
+      construirBotonesTC();
+      pintarRecuadrosTC();
+    };
+
+    cont.appendChild(b);
+  });
+
+  $("estadoTiempos").textContent =
+    `ID ${currentID || ""} · TCs: ${tcs.length} · Abiertos: ${selectedTCs.size}`;
+}
+
+function pintarRecuadrosTC(){
+  const cont = $("tcCards");
+  cont.innerHTML = "";
+
+  const tcs = [...selectedTCs].filter(tc => (currentTramosData || {})[tc]);
+  tcs.sort((a,b)=>{
+    const na = parseInt(a.replace(/\D+/g,"")||"0",10);
+    const nb = parseInt(b.replace(/\D+/g,"")||"0",10);
+    return na - nb;
+  });
+
+  tcs.forEach(tc=>{
+    const card = document.createElement("div");
+    card.className = "tc-card";
+
+    const header = document.createElement("div");
+    header.className = "tc-card-header";
+
+    const title = document.createElement("div");
+    title.className = "tc-title";
+    title.textContent = `Clasificación ${tc}`;
+
+    const close = document.createElement("button");
+    close.className = "tc-close";
+    close.textContent = "✕";
+    close.onclick = ()=>{
+      selectedTCs.delete(tc);
+      construirBotonesTC();
+      pintarRecuadrosTC();
+    };
+
+    header.appendChild(title);
+    header.appendChild(close);
+    card.appendChild(header);
+
+    const table = document.createElement("table");
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Nº</th>
+          <th>Salida</th>
+          <th>Llegada</th>
+          <th>Tiempo</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    card.appendChild(table);
+
+    const info = document.createElement("div");
+    info.className = "small";
+    info.style.marginTop = "6px";
+    card.appendChild(info);
+
+    cont.appendChild(card);
+
+    pintarTablaDeUnTC(tc, table.querySelector("tbody"), info);
+  });
+}
+
 function parseHoraToMs(h){
   if(!h || typeof h !== "string") return null;
   const parts = h.split(":");
@@ -404,7 +528,6 @@ function parseHoraToMs(h){
 }
 
 function msToDur(ms){
-  if(ms == null) return "";
   let diff = ms;
   const msec = diff % 1000; diff = Math.floor(diff/1000);
   const s = diff % 60; diff = Math.floor(diff/60);
@@ -413,36 +536,30 @@ function msToDur(ms){
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${String(msec).padStart(3,"0")}`;
 }
 
-function pintarTablaTiempos(){
-  const tbody = $("tablaTiempos").querySelector("tbody");
+function pintarTablaDeUnTC(tc, tbody, infoEl){
   tbody.innerHTML = "";
+  const tramo = currentTramosData?.[tc];
+  const puestos = tramo?.puestos;
+  if(!puestos){
+    infoEl.textContent = "Sin datos de puestos.";
+    return;
+  }
 
-  const tramoSel = $("selectorTramo").value || "TODOS";
   const acumulado = {};
 
-  const tramosAProcesar = tramoSel === "TODOS"
-    ? Object.keys(currentTramosData || {})
-    : [tramoSel];
+  ["S","LL"].forEach(tipo=>{
+    const tiempos = puestos?.[tipo]?.tiempos;
+    if(!tiempos) return;
 
-  tramosAProcesar.forEach(tc=>{
-    const tramo = currentTramosData?.[tc];
-    const puestos = tramo?.puestos;
-    if(!puestos) return;
+    Object.values(tiempos).forEach(reg=>{
+      const dorsal = reg?.dorsal;
+      const hora = reg?.tiempo;
+      const puesto = reg?.puesto;
+      if(!dorsal || !hora) return;
+      if(puesto !== "S" && puesto !== "LL") return;
 
-    ["S","LL"].forEach(tipo=>{
-      const tiempos = puestos?.[tipo]?.tiempos;
-      if(!tiempos) return;
-
-      Object.values(tiempos).forEach(reg=>{
-        const dorsal = reg?.dorsal;
-        const hora = reg?.tiempo;
-        const puesto = reg?.puesto;
-        if(!dorsal || !hora) return;
-        if(puesto !== "S" && puesto !== "LL") return;
-
-        if(!acumulado[dorsal]) acumulado[dorsal] = { S:null, LL:null };
-        acumulado[dorsal][puesto] = hora;
-      });
+      if(!acumulado[dorsal]) acumulado[dorsal] = { S:null, LL:null };
+      acumulado[dorsal][puesto] = hora;
     });
   });
 
@@ -483,11 +600,10 @@ function pintarTablaTiempos(){
     tbody.appendChild(tr);
   });
 
-  $("estadoTiempos").textContent =
-    `Mostrando ${filas.length} dorsales (se actualiza en vivo con S y LL).`;
+  infoEl.textContent = `Registros: ${filas.length}`;
 }
 
-/* ================= INSCRITOS (igual) ================= */
+/* ================= INSCRITOS ================= */
 window.guardarInscrito = async function(){
   const id = $("idInscritos").value;
   const num = $("i_num").value.trim();
@@ -527,30 +643,34 @@ function pintarTablaInscritos(){
   });
 }
 
-/* ===================== NUEVO: CH ===================== */
-/* No tocamos currentTramosData (que depende del selectorID de Tiempos).
-   Para CH usamos un listener separado con su propio cache. */
+/* ===================== CH (SIN CAMBIOS IMPORTANTES) ===================== */
 let tramosCHCache = {};
 
 function engancharTramosSoloParaCH(id){
   onValue(ref(db, `IDs/${id}/tramos`), snap=>{
     tramosCHCache = snap.val() || {};
-    cargarSelectorCH(); // rellena lista CH disponibles
-    pintarCH();         // pinta tabla
+    cargarSelectorCH();
+    pintarCH();
   });
 }
+
+$("selectorID_CH").addEventListener("change", ()=>{
+  engancharTramosSoloParaCH($("selectorID_CH").value);
+});
+
+$("selectorCH").addEventListener("change", ()=>{
+  pintarCH();
+});
 
 function cargarSelectorCH(){
   const sel = $("selectorCH");
   const prev = sel.value;
 
-  // Solo TC0
   const puestos = tramosCHCache?.TC0?.puestos || {};
   const chKeys = Object.keys(puestos).filter(k => k.toUpperCase().startsWith("CH"));
 
   sel.innerHTML = `<option value="TODOS">TODOS</option>`;
   chKeys.sort((a,b)=>{
-    // orden CH1..CH15
     const na = parseInt(a.replace(/\D+/g,"")||"0",10);
     const nb = parseInt(b.replace(/\D+/g,"")||"0",10);
     return na - nb;
@@ -581,7 +701,6 @@ function pintarCH(){
 
     const tiempos = puestos?.[chKey]?.tiempos || {};
     Object.values(tiempos).forEach(reg=>{
-      // Ignorar _init (boolean)
       const dorsal = reg?.dorsal;
       const hora = reg?.tiempo;
       if(!dorsal || !hora) return;
@@ -590,7 +709,6 @@ function pintarCH(){
     });
   });
 
-  // Ordenar por CH (1..15) y luego por hora (texto)
   filas.sort((a,b)=>{
     const na = parseInt(a.ch.replace(/\D+/g,"")||"0",10);
     const nb = parseInt(b.ch.replace(/\D+/g,"")||"0",10);
@@ -611,16 +729,10 @@ function pintarCH(){
   $("estadoCH").textContent = `ID ${id} · Registros CH: ${filas.length}`;
 }
 
-/* Arranque: enganchar CH al primer ID disponible cuando se carguen IDs */
 function initCH(){
   const id = $("selectorID_CH").value;
   if(id) engancharTramosSoloParaCH(id);
 }
-
-// Cuando cambian IDs (listener de IDs), ya llamamos a pintarCH().
-$("selectorID_CH").addEventListener("change", initCH);
-
-// Primera vez, cuando ya haya IDs:
 setTimeout(initCH, 500);
 
 mostrarPanel("tiempos");

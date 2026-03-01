@@ -198,10 +198,7 @@ th,td{
   ID:
   <select id="selectorID"></select>
 
-  <!-- NUEVO: botones por TC -->
   <div id="tcButtons" class="tc-buttons"></div>
-
-  <!-- NUEVO: recuadros por TC seleccionado -->
   <div id="tcCards" class="tc-cards"></div>
 
   <div id="estadoTiempos" class="small"></div>
@@ -338,7 +335,6 @@ let currentID = null;
 let currentTramosData = {};
 let inscritosCache = {};
 
-// TCs seleccionados (solo UI tiempos)
 const selectedTCs = new Set();
 
 onValue(ref(db,"IDs"), snap=>{
@@ -429,7 +425,6 @@ function construirBotonesTC(){
 
   const tcs = obtenerListaTCs();
 
-  // si no hay seleccionados, selecciona el primero para que se vea algo
   if(selectedTCs.size === 0 && tcs.length > 0){
     selectedTCs.add(tcs[0]);
   }
@@ -451,7 +446,7 @@ function construirBotonesTC(){
   });
 
   $("estadoTiempos").textContent =
-    `ID ${currentID || ""} · TCs: ${tcs.length} · Abiertos: ${selectedTCs.size}`;
+    `ID ${currentID || ""} · TCs: ${tcs.length} · Abiertos: ${selectedTCs.size} · (click en S o LL para editar)`;
 }
 
 function pintarRecuadrosTC(){
@@ -514,6 +509,36 @@ function pintarRecuadrosTC(){
   });
 }
 
+/* ================= EDITAR HORAS (S/LL) ================= */
+function esHoraValida(h){
+  return /^\d{2}:\d{2}:\d{2}\.\d{3}$/.test(h);
+}
+
+async function editarHora(tc, tipo, keyActual, horaActual){
+  if(!keyActual){
+    alert("No se puede editar: no se encontró la clave del registro (push id).");
+    return;
+  }
+
+  const nueva = prompt(`Editar ${tipo} en ${tc}\nFormato: HH:MM:SS.mmm`, horaActual || "");
+  if(nueva === null) return;
+  const h = (nueva || "").trim();
+
+  if(!esHoraValida(h)){
+    alert("Formato inválido. Usa HH:MM:SS.mmm (ej: 00:12:34.567)");
+    return;
+  }
+
+  const id = $("selectorID").value;
+  const ruta = `IDs/${id}/tramos/${tc}/puestos/${tipo}/tiempos/${keyActual}`;
+
+  await update(ref(db, ruta), {
+    tiempo: h,
+    editado: Date.now()
+  });
+}
+
+/* ================= TIEMPOS: cálculo por TC (CON KEYS PARA EDITAR) ================= */
 function parseHoraToMs(h){
   if(!h || typeof h !== "string") return null;
   const parts = h.split(":");
@@ -545,27 +570,34 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
     return;
   }
 
+  // dorsal -> { S:{hora,key}, LL:{hora,key} }
   const acumulado = {};
 
   ["S","LL"].forEach(tipo=>{
-    const tiempos = puestos?.[tipo]?.tiempos;
-    if(!tiempos) return;
+    const tiemposObj = puestos?.[tipo]?.tiempos;
+    if(!tiemposObj) return;
 
-    Object.values(tiempos).forEach(reg=>{
+    Object.entries(tiemposObj).forEach(([key, reg])=>{
       const dorsal = reg?.dorsal;
       const hora = reg?.tiempo;
       const puesto = reg?.puesto;
+
       if(!dorsal || !hora) return;
       if(puesto !== "S" && puesto !== "LL") return;
 
       if(!acumulado[dorsal]) acumulado[dorsal] = { S:null, LL:null };
-      acumulado[dorsal][puesto] = hora;
+
+      // si hay más de uno, nos quedamos con el último que aparece
+      acumulado[dorsal][puesto] = { hora, key };
     });
   });
 
   const filas = Object.keys(acumulado).map(dorsal=>{
-    const s = acumulado[dorsal].S;
-    const ll = acumulado[dorsal].LL;
+    const sObj = acumulado[dorsal].S;
+    const llObj = acumulado[dorsal].LL;
+
+    const s = sObj?.hora || null;
+    const ll = llObj?.hora || null;
 
     const msS = parseHoraToMs(s);
     const msLL = parseHoraToMs(ll);
@@ -584,19 +616,49 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
       }
     }
 
-    return { dorsal, s: s || "—", ll: ll || "—", tiempo, orden };
+    return {
+      dorsal,
+      s: s || "—",
+      ll: ll || "—",
+      sKey: sObj?.key || null,
+      llKey: llObj?.key || null,
+      tiempo,
+      orden
+    };
   });
 
   filas.sort((a,b)=>a.orden-b.orden);
 
   filas.forEach(f=>{
     const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${f.dorsal}</td>
-      <td>${f.s}</td>
-      <td>${f.ll}</td>
-      <td><b>${f.tiempo}</b></td>
-    `;
+
+    const tdD = document.createElement("td");
+    tdD.textContent = f.dorsal;
+
+    const tdS = document.createElement("td");
+    tdS.textContent = f.s;
+    tdS.style.cursor = f.sKey ? "pointer" : "default";
+    tdS.title = f.sKey ? "Click para editar salida" : "";
+    tdS.onclick = ()=>{
+      if(f.sKey) editarHora(tc, "S", f.sKey, f.s === "—" ? "" : f.s);
+    };
+
+    const tdLL = document.createElement("td");
+    tdLL.textContent = f.ll;
+    tdLL.style.cursor = f.llKey ? "pointer" : "default";
+    tdLL.title = f.llKey ? "Click para editar llegada" : "";
+    tdLL.onclick = ()=>{
+      if(f.llKey) editarHora(tc, "LL", f.llKey, f.ll === "—" ? "" : f.ll);
+    };
+
+    const tdT = document.createElement("td");
+    tdT.innerHTML = `<b>${f.tiempo}</b>`;
+
+    tr.appendChild(tdD);
+    tr.appendChild(tdS);
+    tr.appendChild(tdLL);
+    tr.appendChild(tdT);
+
     tbody.appendChild(tr);
   });
 
@@ -643,7 +705,7 @@ function pintarTablaInscritos(){
   });
 }
 
-/* ===================== CH (SIN CAMBIOS IMPORTANTES) ===================== */
+/* ===================== CH (SIN CAMBIOS) ===================== */
 let tramosCHCache = {};
 
 function engancharTramosSoloParaCH(id){

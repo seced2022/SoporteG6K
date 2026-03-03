@@ -151,6 +151,24 @@ th,td{
   font-weight:bold;
   text-decoration:underline;
 }
+
+/* Botones de exportación */
+.export-bar{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:6px 0 10px 0;
+}
+.export-btn{
+  background:#2a2a2a;
+  border:1px solid #444;
+  color:#fff;
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:bold;
+}
+.export-btn:hover{ border-color:#00aa44; }
 </style>
 </head>
 
@@ -220,6 +238,12 @@ th,td{
 
   ID:
   <select id="selectorID"></select>
+
+  <!-- Exportaciones (NUEVO) -->
+  <div class="export-bar">
+    <button class="export-btn" onclick="exportarTCsAbiertosCSV()">⬇ Exportar TC (abiertos)</button>
+    <button class="export-btn" onclick="exportarGeneralCSV()">⬇ Exportar General</button>
+  </div>
 
   <div id="tcButtons" class="tc-buttons"></div>
   <div id="tcCards" class="tc-cards"></div>
@@ -349,7 +373,7 @@ window.crearRally = async function(){
     }
 
     estadoRally(
-      `✅ Rally creado COMPLETO\nID: ${id}\nTC0: CH1..CH15\nTC1..TC${num}: S/LL`,
+      `✅ Rally creado COMPLETO\nID: ${id}\nTC0: CH0..CH15\nTC1..TC${num}: S/LL`,
       false
     );
 
@@ -657,7 +681,6 @@ async function añadirDorsalManual(tc){
     return;
   }
 
-  // Creamos los registros que correspondan
   if(sVal) await crearPasoManual(tc, "S", dorsal, sVal);
   if(llVal) await crearPasoManual(tc, "LL", dorsal, llVal);
 }
@@ -685,7 +708,201 @@ function msToDur(ms){
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${String(msec).padStart(3,"0")}`;
 }
 
-/* ================= TIEMPOS: TABLA POR TC ================= */
+/* ================== EXPORT: helpers (NUEVO) ================== */
+function csvEscape(v){
+  const s = String(v ?? "");
+  if(/[",\n;]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+  return s;
+}
+
+function descargarCSV(nombreArchivo, csvText){
+  const blob = new Blob([csvText], { type:"text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombreArchivo;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function getPiloto(num){
+  return inscritosCache?.[num]?.piloto || "";
+}
+function getCopiloto(num){
+  return inscritosCache?.[num]?.copiloto || "";
+}
+function getVehiculo(num){
+  return inscritosCache?.[num]?.vehiculo || "";
+}
+
+/* ================= TIEMPOS: cálculo de clasificación por TC (NUEVO) =================
+   - Devuelve SOLO dorsales numéricos (para exportar limpio)
+   - Calcula diff si hay S y LL; si falta, marca EN CURSO (ms = null)
+*/
+function calcularClasificacionTC(tc){
+  const tramo = currentTramosData?.[tc];
+  const puestos = tramo?.puestos;
+  if(!puestos) return [];
+
+  const porDorsal = {}; // dorsal -> {S:{hora,ms}, LL:{hora,ms}}
+
+  ["S","LL"].forEach(tipo=>{
+    const tiemposObj = puestos?.[tipo]?.tiempos;
+    if(!tiemposObj) return;
+
+    Object.values(tiemposObj).forEach(reg=>{
+      const dorsalRaw = (reg?.dorsal ?? "").toString().trim();
+      const hora = reg?.tiempo;
+      const puesto = reg?.puesto;
+
+      if(!hora) return;
+      if(puesto !== "S" && puesto !== "LL") return;
+      if(!esDorsalValidoSoloNumeros(dorsalRaw)) return;
+
+      if(!porDorsal[dorsalRaw]) porDorsal[dorsalRaw] = { S:null, LL:null };
+      porDorsal[dorsalRaw][puesto] = { hora, ms: parseHoraToMs(hora) };
+    });
+  });
+
+  const filas = Object.keys(porDorsal).map(dorsal=>{
+    const s = porDorsal[dorsal].S?.hora || "";
+    const ll = porDorsal[dorsal].LL?.hora || "";
+    const msS = porDorsal[dorsal].S?.ms ?? null;
+    const msLL = porDorsal[dorsal].LL?.ms ?? null;
+
+    let diffMs = null;
+    let tiempoStr = "EN CURSO";
+
+    if(msS != null && msLL != null){
+      const d = msLL - msS;
+      if(d >= 0){
+        diffMs = d;
+        tiempoStr = msToDur(d);
+      }else{
+        tiempoStr = "ERROR";
+      }
+    }
+
+    return {
+      dorsal,
+      piloto: getPiloto(dorsal),
+      copiloto: getCopiloto(dorsal),
+      vehiculo: getVehiculo(dorsal),
+      salida: s,
+      llegada: ll,
+      tiempo: tiempoStr,
+      tiempoMs: diffMs
+    };
+  });
+
+  // Orden: los que tienen tiempo primero, luego EN CURSO, luego ERROR
+  filas.sort((a,b)=>{
+    const aKey = (a.tiempoMs == null) ? 9e18 : a.tiempoMs;
+    const bKey = (b.tiempoMs == null) ? 9e18 : b.tiempoMs;
+    return aKey - bKey;
+  });
+
+  return filas;
+}
+
+/* ================= EXPORT TC abiertos (NUEVO) ================= */
+window.exportarTCsAbiertosCSV = function(){
+  const id = $("selectorID").value || "ID";
+  const abiertos = [...selectedTCs].filter(tc => tc && tc !== "TC0" && currentTramosData?.[tc]);
+
+  if(abiertos.length === 0){
+    alert("No hay ningún TC abierto para exportar.");
+    return;
+  }
+
+  abiertos.forEach(tc=>{
+    const filas = calcularClasificacionTC(tc);
+
+    let csv = "POS;TC;DORSAL;PILOTO;COPILOTO;VEHICULO;SALIDA;LLEGADA;TIEMPO\n";
+    filas.forEach((f, idx)=>{
+      csv += [
+        (idx+1),
+        tc,
+        f.dorsal,
+        csvEscape(f.piloto),
+        csvEscape(f.copiloto),
+        csvEscape(f.vehiculo),
+        f.salida,
+        f.llegada,
+        f.tiempo
+      ].join(";") + "\n";
+    });
+
+    descargarCSV(`${id}_${tc}_clasificacion.csv`, csv);
+  });
+};
+
+/* ================= EXPORT GENERAL (NUEVO) =================
+   - Suma tiempos de TODOS los TC (excluye TC0)
+   - Solo cuenta un TC si ese dorsal tiene S y LL válidos (diff>=0)
+   - Ordena por total
+*/
+window.exportarGeneralCSV = function(){
+  const id = $("selectorID").value || "ID";
+  const tcs = obtenerListaTCs(); // todos menos TC0
+
+  if(tcs.length === 0){
+    alert("Este ID no tiene TCs para sumar.");
+    return;
+  }
+
+  // dorsal -> { totalMs, tramosOK, detalles: {TC: ms} }
+  const acc = {};
+
+  tcs.forEach(tc=>{
+    const filasTC = calcularClasificacionTC(tc);
+    filasTC.forEach(f=>{
+      if(f.tiempoMs == null) return; // no suma EN CURSO / ERROR
+      if(!acc[f.dorsal]){
+        acc[f.dorsal] = { totalMs:0, tramosOK:0, detalles:{} };
+      }
+      acc[f.dorsal].totalMs += f.tiempoMs;
+      acc[f.dorsal].tramosOK += 1;
+      acc[f.dorsal].detalles[tc] = f.tiempoMs;
+    });
+  });
+
+  const lista = Object.keys(acc).map(dorsal=>{
+    return {
+      dorsal,
+      piloto: getPiloto(dorsal),
+      copiloto: getCopiloto(dorsal),
+      vehiculo: getVehiculo(dorsal),
+      totalMs: acc[dorsal].totalMs,
+      totalStr: msToDur(acc[dorsal].totalMs),
+      tramosOK: acc[dorsal].tramosOK
+    };
+  });
+
+  // orden por total
+  lista.sort((a,b)=>a.totalMs-b.totalMs);
+
+  // CSV con columnas por TC (opcional) + total
+  let csv = "POS;DORSAL;PILOTO;COPILOTO;VEHICULO;TRAMOS_OK;TOTAL\n";
+  // Si quieres también cada TC:
+  // csv = "POS;DORSAL;PILOTO;COPILOTO;VEHICULO;" + tcs.join(";") + ";TRAMOS_OK;TOTAL\n";
+
+  lista.forEach((f, idx)=>{
+    csv += [
+      (idx+1),
+      f.dorsal,
+      csvEscape(f.piloto),
+      csvEscape(f.copiloto),
+      csvEscape(f.vehiculo),
+      f.tramosOK,
+      f.totalStr
+    ].join(";") + "\n";
+  });
+
+  descargarCSV(`${id}_GENERAL.csv`, csv);
+};
+
+/* ================= TIEMPOS: TABLA POR TC (visual, sin tocar) ================= */
 function pintarTablaDeUnTC(tc, tbody, infoEl){
   tbody.innerHTML = "";
 
@@ -795,7 +1012,6 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
       }
     }
 
-    // al final
     const ordenFinal = orden + 5000000000;
 
     filas.push({
@@ -815,7 +1031,6 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
   filas.forEach(f=>{
     const tr = document.createElement("tr");
 
-    // DORSAL: click asignar/editar (solo números)
     const tdD = document.createElement("td");
     tdD.textContent = f.dorsal;
     tdD.style.cursor = (f.sKey || f.llKey) ? "pointer" : "default";
@@ -823,7 +1038,6 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
     if(f.sinDorsal) tdD.classList.add("sin-dorsal");
     tdD.onclick = ()=> editarDorsalFila(tc, f.dorsal, f.sKey, f.llKey);
 
-    // SALIDA: editar si existe, si es — crear manual
     const tdS = document.createElement("td");
     tdS.textContent = f.s;
     tdS.style.cursor = "pointer";
@@ -834,7 +1048,6 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
         editarHora(tc, "S", f.sKey, f.s === "—" ? "" : f.s);
         return;
       }
-      // crear manual si no existe
       if(!esDorsalValidoSoloNumeros(f.dorsal)){
         alert("Primero asigna un dorsal numérico a esta fila.");
         return;
@@ -849,7 +1062,6 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
       await crearPasoManual(tc, "S", f.dorsal, h);
     };
 
-    // LLEGADA: editar si existe, si es — crear manual
     const tdLL = document.createElement("td");
     tdLL.textContent = f.ll;
     tdLL.style.cursor = "pointer";

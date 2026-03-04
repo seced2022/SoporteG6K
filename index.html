@@ -5,6 +5,7 @@
 <title>Control Rally V1</title>
 
 <style>
+
 body{
   font-family: Arial;
   background:#111;
@@ -60,115 +61,11 @@ th,td{
 .small{
   font-size:12px;
   opacity:.95;
-  white-space:pre-wrap;
 }
+
 .ok{ color:#b7ffb7; }
 .err{ color:#ffb3b3; }
 
-/* ======= TIEMPOS: botones TC y recuadros ======= */
-.tc-buttons{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  margin:8px 0 12px 0;
-}
-
-.tc-btn{
-  background:#2a2a2a;
-  border:1px solid #444;
-  color:#fff;
-  padding:8px 12px;
-  border-radius:8px;
-  cursor:pointer;
-  font-weight:bold;
-}
-
-.tc-btn.active{
-  background:#e10600;
-  border-color:#e10600;
-}
-
-.tc-cards{
-  display:flex;
-  flex-direction:column;
-  gap:12px;
-}
-
-.tc-card{
-  border:1px solid #333;
-  border-radius:10px;
-  padding:10px;
-  background:#151515;
-}
-
-.tc-card-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.tc-title{
-  font-weight:bold;
-  font-size:14px;
-}
-
-.tc-actions{
-  display:flex;
-  gap:8px;
-  align-items:center;
-}
-
-.tc-add{
-  background:#2a2a2a;
-  border:1px solid #444;
-  color:#fff;
-  padding:4px 10px;
-  border-radius:8px;
-  cursor:pointer;
-  font-weight:bold;
-}
-
-.tc-add:hover{ border-color:#00aa44; }
-
-.tc-close{
-  background:#2a2a2a;
-  border:1px solid #444;
-  color:#fff;
-  padding:4px 10px;
-  border-radius:8px;
-  cursor:pointer;
-  font-weight:bold;
-}
-
-.tc-close:hover{ border-color:#e10600; }
-
-.tc-card table{ margin-top:8px; }
-
-/* Resaltado SIN DORSAL */
-.sin-dorsal{
-  font-weight:bold;
-  text-decoration:underline;
-}
-
-/* Botones de exportación */
-.export-bar{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  margin:6px 0 10px 0;
-}
-.export-btn{
-  background:#2a2a2a;
-  border:1px solid #444;
-  color:#fff;
-  padding:8px 12px;
-  border-radius:8px;
-  cursor:pointer;
-  font-weight:bold;
-}
-.export-btn:hover{ border-color:#00aa44; }
 </style>
 </head>
 
@@ -177,1062 +74,296 @@ th,td{
 <h2>🏁 Control Rally V1</h2>
 
 <div class="menu">
-  <button class="btn" onclick="mostrarPanel('crearRally')">Crear Rally</button>
-  <button class="btn" onclick="mostrarPanel('inscritos')">Inscritos</button>
-  <button class="btn" onclick="mostrarPanel('tiempos')">Tiempos</button>
-  <button class="btn" onclick="mostrarPanel('ch')">CH</button>
+<button class="btn" onclick="mostrarPanel('crearRally')">Crear Rally</button>
+<button class="btn" onclick="mostrarPanel('inscritos')">Inscritos</button>
+<button class="btn" onclick="mostrarPanel('tiempos')">Tiempos</button>
+<button class="btn" onclick="mostrarPanel('ch')">CH</button>
 </div>
+
 
 <!-- ================= CREAR RALLY ================= -->
+
 <div id="crearRally" class="panel">
-  <h3>Crear Rally</h3>
 
-  ID Rally:
-  <input id="nuevoID" placeholder="Ej: ID999">
+<h3>Crear Rally</h3>
 
-  Nº Tramos:
-  <input id="numTramos" type="number" min="1" value="1">
+ID Rally:
+<input id="nuevoID">
 
-  <button class="btn" onclick="crearRally()">Confirmar</button>
+Nº Tramos:
+<input id="numTramos" type="number" min="1" value="1">
 
-  <div id="estadoRally" class="small"></div>
+<button class="btn" onclick="crearRally()">Confirmar</button>
+
+<div id="estadoRally" class="small"></div>
+
 </div>
+
+
 
 <!-- ================= INSCRITOS ================= -->
+
 <div id="inscritos" class="panel">
-  <h3>Inscritos</h3>
 
-  ID:
-  <select id="idInscritos"></select>
+<h3>Inscritos</h3>
 
-  Buscar dorsal:
-  <input id="buscarDorsal" oninput="filtrarInscritos()">
+ID:
+<select id="idInscritos"></select>
 
-  <br><br>
+Buscar dorsal:
+<input id="buscarDorsal" oninput="filtrarInscritos()">
 
-  Nº <input id="i_num" size="4">
-  Piloto <input id="i_pil">
-  Copiloto <input id="i_cop">
-  Vehículo <input id="i_veh">
+<br><br>
 
-  <br><br>
-  <button class="btn" onclick="guardarInscrito()">Guardar</button>
-  <span id="estadoInscritos" class="small"></span>
+Nº <input id="i_num" size="4">
+Equipo <input id="i_equ">
+Piloto <input id="i_pil">
+Copiloto <input id="i_cop">
+Vehículo <input id="i_veh">
 
-  <table id="tablaInscritos">
-    <thead>
-      <tr>
-        <th>Nº</th>
-        <th>Piloto</th>
-        <th>Copiloto</th>
-        <th>Vehículo</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+<br><br>
+
+Grupo <input id="i_gru" size="6">
+Clase <input id="i_cla" size="6">
+Categoría <input id="i_cat" size="6">
+Agrupación <input id="i_agr" size="6">
+Copa <input id="i_copa" size="6">
+
+<br><br>
+
+<button class="btn" onclick="guardarInscrito()">Guardar</button>
+
+<span id="estadoInscritos" class="small"></span>
+
+
+<table id="tablaInscritos">
+
+<thead>
+
+<tr>
+<th>Nº</th>
+<th>Equipo</th>
+<th>Piloto</th>
+<th>Copiloto</th>
+<th>Vehículo</th>
+<th>Grupo</th>
+<th>Clase</th>
+<th>Categoría</th>
+<th>Agrupación</th>
+<th>Copa</th>
+</tr>
+
+</thead>
+
+<tbody></tbody>
+
+</table>
+
 </div>
+
+
 
 <!-- ================= TIEMPOS ================= -->
+
 <div id="tiempos" class="panel active">
-  <h3>Tiempos</h3>
 
-  ID:
-  <select id="selectorID"></select>
+<h3>Tiempos</h3>
 
-  <!-- Exportaciones (NUEVO) -->
-  <div class="export-bar">
-    <button class="export-btn" onclick="exportarTCsAbiertosCSV()">⬇ Exportar TC (abiertos)</button>
-    <button class="export-btn" onclick="exportarGeneralCSV()">⬇ Exportar General</button>
-  </div>
+ID:
+<select id="selectorID"></select>
 
-  <div id="tcButtons" class="tc-buttons"></div>
-  <div id="tcCards" class="tc-cards"></div>
+<div id="tcButtons"></div>
+<div id="tcCards"></div>
 
-  <div id="estadoTiempos" class="small"></div>
+<div id="estadoTiempos" class="small"></div>
+
 </div>
+
+
 
 <!-- ================= CH ================= -->
+
 <div id="ch" class="panel">
-  <h3>CH (Controles de Paso)</h3>
 
-  ID:
-  <select id="selectorID_CH"></select>
+<h3>CH</h3>
 
-  CH:
-  <select id="selectorCH">
-    <option value="TODOS">TODOS</option>
-  </select>
+ID:
+<select id="selectorID_CH"></select>
 
-  <table id="tablaCH">
-    <thead>
-      <tr>
-        <th>CH</th>
-        <th>Nº</th>
-        <th>Hora paso</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+CH:
+<select id="selectorCH">
+<option value="TODOS">TODOS</option>
+</select>
 
-  <div id="estadoCH" class="small"></div>
+<table id="tablaCH">
+
+<thead>
+<tr>
+<th>CH</th>
+<th>Nº</th>
+<th>Hora</th>
+</tr>
+</thead>
+
+<tbody></tbody>
+
+</table>
+
 </div>
 
+
+
+
 <script type="module">
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, update, onValue, get, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, update, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
-  authDomain: "heideggerp6v2.firebaseapp.com",
-  databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "heideggerp6v2",
-  storageBucket: "heideggerp6v2.firebasestorage.app",
-  messagingSenderId: "186503733",
-  appId: "1:186503733:web:ac4e03f579a8e101f5177c"
+
+apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
+authDomain: "heideggerp6v2.firebaseapp.com",
+databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
+projectId: "heideggerp6v2",
+storageBucket: "heideggerp6v2.appspot.com",
+messagingSenderId: "186503733",
+appId: "1:186503733:web:ac4e03f579a8e101f5177c"
+
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const $ = (id)=>document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 window.mostrarPanel = function(id){
-  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
+
+document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+document.getElementById(id).classList.add("active");
+
 };
 
-function estadoRally(msg, isErr=false){
-  const el = $("estadoRally");
-  el.className = "small " + (isErr ? "err" : "ok");
-  el.textContent = msg;
-}
 
-function tiemposInit(){
-  return { "_init": true };
-}
 
-/* ================= VALIDACIONES ================= */
-function esHoraValida(h){
-  return /^\d{2}:\d{2}:\d{2}\.\d{3}$/.test(h);
-}
-function normalizarDorsal(d){
-  return (d || "").trim();
-}
-function esDorsalValidoSoloNumeros(d){
-  return /^\d+$/.test(d);
-}
-function esSinDorsal(d){
-  const x = (d || "").trim().toUpperCase();
-  return x === "" || x === "SIN DORSAL" || x === "SINDORSAL" || x === "0";
-}
+/* ================= CREAR RALLY ================= */
 
-/* ================= CREAR RALLY (NO TOCAR) ================= */
 window.crearRally = async function(){
-  const id = $("nuevoID").value.trim();
-  const num = parseInt($("numTramos").value, 10);
 
-  if(!id || !num || num < 1){
-    alert("Pon un ID válido y nº de tramos");
-    return;
-  }
+const id = $("nuevoID").value.trim();
+const num = parseInt($("numTramos").value);
 
-  try{
-    const idRef = ref(db, "IDs/"+id);
-    const snap = await get(idRef);
+if(!id || !num) return;
 
-    if(snap.exists()){
-      alert("Ese ID ya existe");
-      return;
-    }
+const refID = ref(db,"IDs/"+id);
+const snap = await get(refID);
 
-    await set(idRef, { creado: Date.now() });
+if(snap.exists()){
+alert("Ese ID ya existe");
+return;
+}
 
-    const tramos = {};
+await set(refID,{creado:Date.now()});
 
-    tramos["TC0"] = { puestos: {} };
-    for(let ch=0; ch<=15; ch++){
-      tramos["TC0"].puestos["CH"+ch] = { tiempos: tiemposInit() };
-    }
+const tramos={};
 
-    for(let i=1; i<=num; i++){
-      const tc = "TC"+i;
-      tramos[tc] = {
-        puestos: {
-          S:  { tiempos: tiemposInit() },
-          LL: { tiempos: tiemposInit() }
-        }
-      };
-    }
+tramos["TC0"]={puestos:{}};
 
-    await update(idRef, { tramos });
+for(let ch=0;ch<=15;ch++){
 
-    const check = await get(ref(db, `IDs/${id}/tramos`));
-    if(!check.exists()){
-      estadoRally("❌ Se creó el ID pero NO existe 'tramos'. Prueba CTRL+F5 / incógnito.", true);
-      return;
-    }
+tramos["TC0"].puestos["CH"+ch]={tiempos:{}};
 
-    estadoRally(
-      `✅ Rally creado COMPLETO\nID: ${id}\nTC0: CH0..CH15\nTC1..TC${num}: S/LL`,
-      false
-    );
+}
 
-    $("nuevoID").value = "";
+for(let i=1;i<=num;i++){
 
-  }catch(e){
-    console.error("ERROR crearRally:", e);
-    estadoRally(
-      "❌ Error real creando rally:\n" +
-      (e?.code ? `code: ${e.code}\n` : "") +
-      (e?.message || String(e)),
-      true
-    );
-    alert("Error creando rally. Mira el mensaje y la consola (F12).");
-  }
+tramos["TC"+i]={
+
+puestos:{
+S:{tiempos:{}},
+LL:{tiempos:{}}
+}
+
 };
 
-/* ================= DATOS EN VIVO ================= */
-let currentID = null;
-let currentTramosData = {};
-let inscritosCache = {};
-const selectedTCs = new Set();
-
-onValue(ref(db,"IDs"), snap=>{
-  const data = snap.val() || {};
-  const ids = Object.keys(data);
-
-  const selT = $("selectorID");
-  const selI = $("idInscritos");
-  const selCH_ID = $("selectorID_CH");
-
-  const prevT = selT.value;
-  const prevI = selI.value;
-  const prevCH = selCH_ID.value;
-
-  selT.innerHTML="";
-  selI.innerHTML="";
-  selCH_ID.innerHTML="";
-
-  ids.forEach(id=>{
-    selT.innerHTML += `<option>${id}</option>`;
-    selI.innerHTML += `<option>${id}</option>`;
-    selCH_ID.innerHTML += `<option>${id}</option>`;
-  });
-
-  if(prevT && ids.includes(prevT)) selT.value = prevT;
-  if(prevI && ids.includes(prevI)) selI.value = prevI;
-  if(prevCH && ids.includes(prevCH)) selCH_ID.value = prevCH;
-
-  if(!selT.value && ids.length) selT.value = ids[0];
-  if(!selI.value && ids.length) selI.value = ids[0];
-  if(!selCH_ID.value && ids.length) selCH_ID.value = ids[0];
-
-  if(selT.value && selT.value !== currentID){
-    currentID = selT.value;
-    selectedTCs.clear();
-    engancharLecturasDeID(currentID);
-  } else if(selT.value && !currentID){
-    currentID = selT.value;
-    selectedTCs.clear();
-    engancharLecturasDeID(currentID);
-  }
-
-  pintarCH();
-});
-
-$("selectorID").addEventListener("change", ()=>{
-  currentID = $("selectorID").value;
-  selectedTCs.clear();
-  engancharLecturasDeID(currentID);
-});
-
-$("idInscritos").addEventListener("change", ()=>{
-  engancharInscritos($("idInscritos").value);
-});
-
-function engancharLecturasDeID(id){
-  onValue(ref(db, `IDs/${id}/tramos`), snap=>{
-    currentTramosData = snap.val() || {};
-    construirBotonesTC();
-    pintarRecuadrosTC();
-  });
-
-  engancharInscritos(id);
 }
 
-function engancharInscritos(id){
-  onValue(ref(db, `IDs/${id}/inscritos`), snap=>{
-    inscritosCache = snap.val() || {};
-    pintarTablaInscritos();
-  });
-}
+await update(refID,{tramos});
 
-/* ================= TIEMPOS UI ================= */
-function obtenerListaTCs(){
-  return Object.keys(currentTramosData || {})
-    .filter(k => k !== "TC0")
-    .sort((a,b)=>{
-      const na = parseInt(a.replace(/\D+/g,"")||"0",10);
-      const nb = parseInt(b.replace(/\D+/g,"")||"0",10);
-      return na - nb;
-    });
-}
+$("estadoRally").innerText="Rally creado";
 
-function construirBotonesTC(){
-  const cont = $("tcButtons");
-  cont.innerHTML = "";
-
-  const tcs = obtenerListaTCs();
-
-  if(selectedTCs.size === 0 && tcs.length > 0){
-    selectedTCs.add(tcs[0]);
-  }
-
-  tcs.forEach(tc=>{
-    const b = document.createElement("button");
-    b.className = "tc-btn" + (selectedTCs.has(tc) ? " active" : "");
-    b.textContent = tc;
-
-    b.onclick = ()=>{
-      if(selectedTCs.has(tc)) selectedTCs.delete(tc);
-      else selectedTCs.add(tc);
-      construirBotonesTC();
-      pintarRecuadrosTC();
-    };
-
-    cont.appendChild(b);
-  });
-
-  $("estadoTiempos").textContent =
-    `ID ${currentID || ""} · TCs: ${tcs.length} · Abiertos: ${selectedTCs.size} · (click en Dorsal / S / LL para editar o crear cuando hay —)`;
-}
-
-function pintarRecuadrosTC(){
-  const cont = $("tcCards");
-  cont.innerHTML = "";
-
-  const tcs = [...selectedTCs].filter(tc => (currentTramosData || {})[tc]);
-  tcs.sort((a,b)=>{
-    const na = parseInt(a.replace(/\D+/g,"")||"0",10);
-    const nb = parseInt(b.replace(/\D+/g,"")||"0",10);
-    return na - nb;
-  });
-
-  tcs.forEach(tc=>{
-    const card = document.createElement("div");
-    card.className = "tc-card";
-
-    const header = document.createElement("div");
-    header.className = "tc-card-header";
-
-    const title = document.createElement("div");
-    title.className = "tc-title";
-    title.textContent = `Clasificación ${tc}`;
-
-    const actions = document.createElement("div");
-    actions.className = "tc-actions";
-
-    const add = document.createElement("button");
-    add.className = "tc-add";
-    add.textContent = "➕ Añadir dorsal";
-    add.title = "Crear manualmente un dorsal en este TC (con S y/o LL)";
-    add.onclick = ()=> añadirDorsalManual(tc);
-
-    const close = document.createElement("button");
-    close.className = "tc-close";
-    close.textContent = "✕";
-    close.onclick = ()=>{
-      selectedTCs.delete(tc);
-      construirBotonesTC();
-      pintarRecuadrosTC();
-    };
-
-    actions.appendChild(add);
-    actions.appendChild(close);
-
-    header.appendChild(title);
-    header.appendChild(actions);
-    card.appendChild(header);
-
-    const table = document.createElement("table");
-    table.innerHTML = `
-      <thead>
-        <tr>
-          <th>Nº</th>
-          <th>Salida</th>
-          <th>Llegada</th>
-          <th>Tiempo</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    `;
-    card.appendChild(table);
-
-    const info = document.createElement("div");
-    info.className = "small";
-    info.style.marginTop = "6px";
-    card.appendChild(info);
-
-    cont.appendChild(card);
-
-    pintarTablaDeUnTC(tc, table.querySelector("tbody"), info);
-  });
-}
-
-/* ================= CREAR/EDITAR REGISTROS EN FIREBASE ================= */
-async function crearPasoManual(tc, tipo, dorsal, hora){
-  const id = $("selectorID").value;
-
-  const baseRef = ref(db, `IDs/${id}/tramos/${tc}/puestos/${tipo}/tiempos`);
-  const nuevoRef = push(baseRef);
-
-  await set(nuevoRef, {
-    dorsal: dorsal,
-    puesto: tipo,       // "S" o "LL"
-    tiempo: hora,       // "HH:MM:SS.mmm"
-    manual: true,
-    timestamp: Date.now()
-  });
-}
-
-async function editarHora(tc, tipo, keyActual, horaActual){
-  if(!keyActual){
-    alert("No se puede editar: no se encontró la clave del registro (push id).");
-    return;
-  }
-
-  const nueva = prompt(`Editar ${tipo} en ${tc}\nFormato: HH:MM:SS.mmm`, horaActual || "");
-  if(nueva === null) return;
-
-  const h = (nueva || "").trim();
-  if(!esHoraValida(h)){
-    alert("Formato inválido. Usa HH:MM:SS.mmm (ej: 00:12:34.567)");
-    return;
-  }
-
-  const id = $("selectorID").value;
-  const ruta = `IDs/${id}/tramos/${tc}/puestos/${tipo}/tiempos/${keyActual}`;
-  await update(ref(db, ruta), { tiempo: h, editado: Date.now() });
-}
-
-async function asignarDorsal(tc, dorsalNuevo, sKey, llKey){
-  const id = $("selectorID").value;
-  const updatesRel = {};
-  const now = Date.now();
-
-  if(sKey){
-    updatesRel[`tramos/${tc}/puestos/S/tiempos/${sKey}/dorsal`] = dorsalNuevo;
-    updatesRel[`tramos/${tc}/puestos/S/tiempos/${sKey}/editado`] = now;
-  }
-  if(llKey){
-    updatesRel[`tramos/${tc}/puestos/LL/tiempos/${llKey}/dorsal`] = dorsalNuevo;
-    updatesRel[`tramos/${tc}/puestos/LL/tiempos/${llKey}/editado`] = now;
-  }
-
-  await update(ref(db, `IDs/${id}`), updatesRel);
-}
-
-async function editarDorsalFila(tc, dorsalActual, sKey, llKey){
-  const sugerido = esSinDorsal(dorsalActual) ? "" : dorsalActual;
-  const nueva = prompt(`Asignar / editar DORSAL en ${tc}\nSolo números (ej: 12)`, sugerido);
-  if(nueva === null) return;
-
-  const d = normalizarDorsal(nueva);
-  if(!esDorsalValidoSoloNumeros(d)){
-    alert("Dorsal inválido. Debe ser SOLO números (ej: 12).");
-    return;
-  }
-
-  if(!sKey && !llKey){
-    alert("No se puede editar: no hay clave (push id) asociada a esta fila.");
-    return;
-  }
-
-  await asignarDorsal(tc, d, sKey, llKey);
-}
-
-/* NUEVO: añadir dorsal desde cero (con S y/o LL) */
-async function añadirDorsalManual(tc){
-  const dorsal = normalizarDorsal(prompt(`Añadir dorsal MANUAL en ${tc}\nSolo números`, ""));
-  if(!dorsal) return;
-  if(!esDorsalValidoSoloNumeros(dorsal)){
-    alert("Dorsal inválido. Debe ser SOLO números.");
-    return;
-  }
-
-  const s = prompt(`Hora SALIDA (S) para dorsal ${dorsal} en ${tc}\nFormato HH:MM:SS.mmm\n(Deja vacío si no quieres crear S)`, "");
-  if(s === null) return;
-  const sVal = (s || "").trim();
-
-  const ll = prompt(`Hora LLEGADA (LL) para dorsal ${dorsal} en ${tc}\nFormato HH:MM:SS.mmm\n(Deja vacío si no quieres crear LL)`, "");
-  if(ll === null) return;
-  const llVal = (ll || "").trim();
-
-  if(!sVal && !llVal){
-    alert("No se creó nada: debes poner al menos S o LL.");
-    return;
-  }
-  if(sVal && !esHoraValida(sVal)){
-    alert("Formato inválido en S. Usa HH:MM:SS.mmm");
-    return;
-  }
-  if(llVal && !esHoraValida(llVal)){
-    alert("Formato inválido en LL. Usa HH:MM:SS.mmm");
-    return;
-  }
-
-  if(sVal) await crearPasoManual(tc, "S", dorsal, sVal);
-  if(llVal) await crearPasoManual(tc, "LL", dorsal, llVal);
-}
-
-/* ================= TIEMPOS: utilidades de cálculo ================= */
-function parseHoraToMs(h){
-  if(!h || typeof h !== "string") return null;
-  const parts = h.split(":");
-  if(parts.length !== 3) return null;
-  const hh = parseInt(parts[0],10);
-  const mm = parseInt(parts[1],10);
-  const ssParts = parts[2].split(".");
-  const ss = parseInt(ssParts[0],10);
-  const ms = parseInt(ssParts[1] || "0",10);
-  if([hh,mm,ss,ms].some(n=>Number.isNaN(n))) return null;
-  return (((hh*60+mm)*60)+ss)*1000 + ms;
-}
-
-function msToDur(ms){
-  let diff = ms;
-  const msec = diff % 1000; diff = Math.floor(diff/1000);
-  const s = diff % 60; diff = Math.floor(diff/60);
-  const m = diff % 60;
-  const h = Math.floor(diff/60);
-  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${String(msec).padStart(3,"0")}`;
-}
-
-/* ================== EXPORT: helpers (NUEVO) ================== */
-function csvEscape(v){
-  const s = String(v ?? "");
-  if(/[",\n;]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
-  return s;
-}
-
-function descargarCSV(nombreArchivo, csvText){
-  const blob = new Blob([csvText], { type:"text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nombreArchivo;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function getPiloto(num){
-  return inscritosCache?.[num]?.piloto || "";
-}
-function getCopiloto(num){
-  return inscritosCache?.[num]?.copiloto || "";
-}
-function getVehiculo(num){
-  return inscritosCache?.[num]?.vehiculo || "";
-}
-
-/* ================= TIEMPOS: cálculo de clasificación por TC (NUEVO) =================
-   - Devuelve SOLO dorsales numéricos (para exportar limpio)
-   - Calcula diff si hay S y LL; si falta, marca EN CURSO (ms = null)
-*/
-function calcularClasificacionTC(tc){
-  const tramo = currentTramosData?.[tc];
-  const puestos = tramo?.puestos;
-  if(!puestos) return [];
-
-  const porDorsal = {}; // dorsal -> {S:{hora,ms}, LL:{hora,ms}}
-
-  ["S","LL"].forEach(tipo=>{
-    const tiemposObj = puestos?.[tipo]?.tiempos;
-    if(!tiemposObj) return;
-
-    Object.values(tiemposObj).forEach(reg=>{
-      const dorsalRaw = (reg?.dorsal ?? "").toString().trim();
-      const hora = reg?.tiempo;
-      const puesto = reg?.puesto;
-
-      if(!hora) return;
-      if(puesto !== "S" && puesto !== "LL") return;
-      if(!esDorsalValidoSoloNumeros(dorsalRaw)) return;
-
-      if(!porDorsal[dorsalRaw]) porDorsal[dorsalRaw] = { S:null, LL:null };
-      porDorsal[dorsalRaw][puesto] = { hora, ms: parseHoraToMs(hora) };
-    });
-  });
-
-  const filas = Object.keys(porDorsal).map(dorsal=>{
-    const s = porDorsal[dorsal].S?.hora || "";
-    const ll = porDorsal[dorsal].LL?.hora || "";
-    const msS = porDorsal[dorsal].S?.ms ?? null;
-    const msLL = porDorsal[dorsal].LL?.ms ?? null;
-
-    let diffMs = null;
-    let tiempoStr = "EN CURSO";
-
-    if(msS != null && msLL != null){
-      const d = msLL - msS;
-      if(d >= 0){
-        diffMs = d;
-        tiempoStr = msToDur(d);
-      }else{
-        tiempoStr = "ERROR";
-      }
-    }
-
-    return {
-      dorsal,
-      piloto: getPiloto(dorsal),
-      copiloto: getCopiloto(dorsal),
-      vehiculo: getVehiculo(dorsal),
-      salida: s,
-      llegada: ll,
-      tiempo: tiempoStr,
-      tiempoMs: diffMs
-    };
-  });
-
-  // Orden: los que tienen tiempo primero, luego EN CURSO, luego ERROR
-  filas.sort((a,b)=>{
-    const aKey = (a.tiempoMs == null) ? 9e18 : a.tiempoMs;
-    const bKey = (b.tiempoMs == null) ? 9e18 : b.tiempoMs;
-    return aKey - bKey;
-  });
-
-  return filas;
-}
-
-/* ================= EXPORT TC abiertos (NUEVO) ================= */
-window.exportarTCsAbiertosCSV = function(){
-  const id = $("selectorID").value || "ID";
-  const abiertos = [...selectedTCs].filter(tc => tc && tc !== "TC0" && currentTramosData?.[tc]);
-
-  if(abiertos.length === 0){
-    alert("No hay ningún TC abierto para exportar.");
-    return;
-  }
-
-  abiertos.forEach(tc=>{
-    const filas = calcularClasificacionTC(tc);
-
-    let csv = "POS;TC;DORSAL;PILOTO;COPILOTO;VEHICULO;SALIDA;LLEGADA;TIEMPO\n";
-    filas.forEach((f, idx)=>{
-      csv += [
-        (idx+1),
-        tc,
-        f.dorsal,
-        csvEscape(f.piloto),
-        csvEscape(f.copiloto),
-        csvEscape(f.vehiculo),
-        f.salida,
-        f.llegada,
-        f.tiempo
-      ].join(";") + "\n";
-    });
-
-    descargarCSV(`${id}_${tc}_clasificacion.csv`, csv);
-  });
 };
 
-/* ================= EXPORT GENERAL (NUEVO) =================
-   - Suma tiempos de TODOS los TC (excluye TC0)
-   - Solo cuenta un TC si ese dorsal tiene S y LL válidos (diff>=0)
-   - Ordena por total
-*/
-window.exportarGeneralCSV = function(){
-  const id = $("selectorID").value || "ID";
-  const tcs = obtenerListaTCs(); // todos menos TC0
 
-  if(tcs.length === 0){
-    alert("Este ID no tiene TCs para sumar.");
-    return;
-  }
-
-  // dorsal -> { totalMs, tramosOK, detalles: {TC: ms} }
-  const acc = {};
-
-  tcs.forEach(tc=>{
-    const filasTC = calcularClasificacionTC(tc);
-    filasTC.forEach(f=>{
-      if(f.tiempoMs == null) return; // no suma EN CURSO / ERROR
-      if(!acc[f.dorsal]){
-        acc[f.dorsal] = { totalMs:0, tramosOK:0, detalles:{} };
-      }
-      acc[f.dorsal].totalMs += f.tiempoMs;
-      acc[f.dorsal].tramosOK += 1;
-      acc[f.dorsal].detalles[tc] = f.tiempoMs;
-    });
-  });
-
-  const lista = Object.keys(acc).map(dorsal=>{
-    return {
-      dorsal,
-      piloto: getPiloto(dorsal),
-      copiloto: getCopiloto(dorsal),
-      vehiculo: getVehiculo(dorsal),
-      totalMs: acc[dorsal].totalMs,
-      totalStr: msToDur(acc[dorsal].totalMs),
-      tramosOK: acc[dorsal].tramosOK
-    };
-  });
-
-  // orden por total
-  lista.sort((a,b)=>a.totalMs-b.totalMs);
-
-  // CSV con columnas por TC (opcional) + total
-  let csv = "POS;DORSAL;PILOTO;COPILOTO;VEHICULO;TRAMOS_OK;TOTAL\n";
-  // Si quieres también cada TC:
-  // csv = "POS;DORSAL;PILOTO;COPILOTO;VEHICULO;" + tcs.join(";") + ";TRAMOS_OK;TOTAL\n";
-
-  lista.forEach((f, idx)=>{
-    csv += [
-      (idx+1),
-      f.dorsal,
-      csvEscape(f.piloto),
-      csvEscape(f.copiloto),
-      csvEscape(f.vehiculo),
-      f.tramosOK,
-      f.totalStr
-    ].join(";") + "\n";
-  });
-
-  descargarCSV(`${id}_GENERAL.csv`, csv);
-};
-
-/* ================= TIEMPOS: TABLA POR TC (visual, sin tocar) ================= */
-function pintarTablaDeUnTC(tc, tbody, infoEl){
-  tbody.innerHTML = "";
-
-  const tramo = currentTramosData?.[tc];
-  const puestos = tramo?.puestos;
-  if(!puestos){
-    infoEl.textContent = "Sin datos de puestos.";
-    return;
-  }
-
-  // dorsales numéricos
-  const porDorsal = {};
-  // sin dorsal -> arrays
-  const sinDorsalS = [];
-  const sinDorsalLL = [];
-
-  ["S","LL"].forEach(tipo=>{
-    const tiemposObj = puestos?.[tipo]?.tiempos;
-    if(!tiemposObj) return;
-
-    Object.entries(tiemposObj).forEach(([key, reg])=>{
-      const dorsalRaw = (reg?.dorsal ?? "").toString().trim();
-      const hora = reg?.tiempo;
-      const puesto = reg?.puesto;
-
-      // ignorar _init y sin hora
-      if(!hora) return;
-      if(puesto !== "S" && puesto !== "LL") return;
-
-      const ms = parseHoraToMs(hora);
-
-      if(esDorsalValidoSoloNumeros(dorsalRaw)){
-        if(!porDorsal[dorsalRaw]) porDorsal[dorsalRaw] = { S:null, LL:null };
-        porDorsal[dorsalRaw][puesto] = { hora, key, ms };
-      }else{
-        const item = { dorsal: dorsalRaw || "SIN DORSAL", hora, key, ms };
-        if(puesto === "S") sinDorsalS.push(item);
-        else sinDorsalLL.push(item);
-      }
-    });
-  });
-
-  sinDorsalS.sort((a,b)=> (a.ms ?? 9e18) - (b.ms ?? 9e18));
-  sinDorsalLL.sort((a,b)=> (a.ms ?? 9e18) - (b.ms ?? 9e18));
-
-  const filas = [];
-
-  // normales
-  Object.keys(porDorsal).forEach(dorsal=>{
-    const sObj = porDorsal[dorsal].S;
-    const llObj = porDorsal[dorsal].LL;
-
-    const s = sObj?.hora || null;
-    const ll = llObj?.hora || null;
-
-    const msS = sObj?.ms ?? parseHoraToMs(s);
-    const msLL = llObj?.ms ?? parseHoraToMs(ll);
-
-    let tiempo = "EN CURSO";
-    let orden = 9999999999;
-
-    if(msS != null && msLL != null){
-      const diff = msLL - msS;
-      if(diff >= 0){
-        tiempo = msToDur(diff);
-        orden = diff;
-      }else{
-        tiempo = "ERROR";
-        orden = 9999999998;
-      }
-    }
-
-    filas.push({
-      dorsal,
-      s: s || "—",
-      ll: ll || "—",
-      sKey: sObj?.key || null,
-      llKey: llObj?.key || null,
-      tiempo,
-      orden,
-      sinDorsal: false
-    });
-  });
-
-  // sin dorsal emparejadas por orden temporal
-  const maxSD = Math.max(sinDorsalS.length, sinDorsalLL.length);
-  for(let i=0; i<maxSD; i++){
-    const sObj = sinDorsalS[i] || null;
-    const llObj = sinDorsalLL[i] || null;
-
-    const s = sObj?.hora || "—";
-    const ll = llObj?.hora || "—";
-    const msS = sObj?.ms ?? parseHoraToMs(sObj?.hora);
-    const msLL = llObj?.ms ?? parseHoraToMs(llObj?.hora);
-
-    let tiempo = "EN CURSO";
-    let orden = 9999999999;
-
-    if(msS != null && msLL != null){
-      const diff = msLL - msS;
-      if(diff >= 0){
-        tiempo = msToDur(diff);
-        orden = diff;
-      }else{
-        tiempo = "ERROR";
-        orden = 9999999998;
-      }
-    }
-
-    const ordenFinal = orden + 5000000000;
-
-    filas.push({
-      dorsal: "SIN DORSAL",
-      s,
-      ll,
-      sKey: sObj?.key || null,
-      llKey: llObj?.key || null,
-      tiempo,
-      orden: ordenFinal,
-      sinDorsal: true
-    });
-  }
-
-  filas.sort((a,b)=>a.orden-b.orden);
-
-  filas.forEach(f=>{
-    const tr = document.createElement("tr");
-
-    const tdD = document.createElement("td");
-    tdD.textContent = f.dorsal;
-    tdD.style.cursor = (f.sKey || f.llKey) ? "pointer" : "default";
-    tdD.title = "Click para asignar/editar dorsal (solo números)";
-    if(f.sinDorsal) tdD.classList.add("sin-dorsal");
-    tdD.onclick = ()=> editarDorsalFila(tc, f.dorsal, f.sKey, f.llKey);
-
-    const tdS = document.createElement("td");
-    tdS.textContent = f.s;
-    tdS.style.cursor = "pointer";
-    tdS.title = f.sKey ? "Click para editar salida" : "Click para crear salida manual (si hay —)";
-
-    tdS.onclick = async ()=>{
-      if(f.sKey){
-        editarHora(tc, "S", f.sKey, f.s === "—" ? "" : f.s);
-        return;
-      }
-      if(!esDorsalValidoSoloNumeros(f.dorsal)){
-        alert("Primero asigna un dorsal numérico a esta fila.");
-        return;
-      }
-      const nueva = prompt(`Crear SALIDA (S) manual en ${tc}\nFormato: HH:MM:SS.mmm`, "");
-      if(nueva === null) return;
-      const h = (nueva || "").trim();
-      if(!esHoraValida(h)){
-        alert("Formato inválido. Usa HH:MM:SS.mmm (ej: 00:12:34.567)");
-        return;
-      }
-      await crearPasoManual(tc, "S", f.dorsal, h);
-    };
-
-    const tdLL = document.createElement("td");
-    tdLL.textContent = f.ll;
-    tdLL.style.cursor = "pointer";
-    tdLL.title = f.llKey ? "Click para editar llegada" : "Click para crear llegada manual (si hay —)";
-
-    tdLL.onclick = async ()=>{
-      if(f.llKey){
-        editarHora(tc, "LL", f.llKey, f.ll === "—" ? "" : f.ll);
-        return;
-      }
-      if(!esDorsalValidoSoloNumeros(f.dorsal)){
-        alert("Primero asigna un dorsal numérico a esta fila.");
-        return;
-      }
-      const nueva = prompt(`Crear LLEGADA (LL) manual en ${tc}\nFormato: HH:MM:SS.mmm`, "");
-      if(nueva === null) return;
-      const h = (nueva || "").trim();
-      if(!esHoraValida(h)){
-        alert("Formato inválido. Usa HH:MM:SS.mmm (ej: 00:12:34.567)");
-        return;
-      }
-      await crearPasoManual(tc, "LL", f.dorsal, h);
-    };
-
-    const tdT = document.createElement("td");
-    tdT.innerHTML = `<b>${f.tiempo}</b>`;
-
-    tr.appendChild(tdD);
-    tr.appendChild(tdS);
-    tr.appendChild(tdLL);
-    tr.appendChild(tdT);
-
-    tbody.appendChild(tr);
-  });
-
-  infoEl.textContent = `Registros: ${filas.length}`;
-}
 
 /* ================= INSCRITOS ================= */
+
 window.guardarInscrito = async function(){
-  const id = $("idInscritos").value;
-  const num = $("i_num").value.trim();
-  if(!id || !num){ alert("Falta ID o Nº"); return; }
 
-  const data = {
-    piloto: $("i_pil").value,
-    copiloto: $("i_cop").value,
-    vehiculo: $("i_veh").value
-  };
+const id = $("idInscritos").value;
+const num = $("i_num").value.trim();
 
-  await set(ref(db, `IDs/${id}/inscritos/${num}`), data);
-  $("estadoInscritos").textContent = "✅ Guardado";
-  ["i_num","i_pil","i_cop","i_veh"].forEach(x=>$(x).value="");
+if(!id || !num){
+alert("Falta ID o Nº");
+return;
+}
+
+const data={
+
+equipo:$("i_equ").value,
+piloto:$("i_pil").value,
+copiloto:$("i_cop").value,
+vehiculo:$("i_veh").value,
+
+grupo:$("i_gru").value,
+clase:$("i_cla").value,
+categoria:$("i_cat").value,
+agrupacion:$("i_agr").value,
+copa:$("i_copa").value
+
 };
 
-window.filtrarInscritos = function(){ pintarTablaInscritos(); };
+await set(ref(db,`IDs/${id}/inscritos/${num}`),data);
+
+$("estadoInscritos").innerText="Guardado";
+
+};
+
+
 
 function pintarTablaInscritos(){
-  const tbody = $("tablaInscritos").querySelector("tbody");
-  tbody.innerHTML = "";
-  const filtro = ($("buscarDorsal").value || "").toLowerCase();
 
-  Object.keys(inscritosCache || {}).forEach(num=>{
-    const d = inscritosCache[num] || {};
-    const texto = `${num} ${d.piloto||""} ${d.copiloto||""} ${d.vehiculo||""}`.toLowerCase();
-    if(filtro && !texto.includes(filtro)) return;
+const tbody=$("tablaInscritos").querySelector("tbody");
+tbody.innerHTML="";
 
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${num}</td>
-      <td>${d.piloto||""}</td>
-      <td>${d.copiloto||""}</td>
-      <td>${d.vehiculo||""}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
+Object.keys(inscritosCache||{}).forEach(num=>{
 
-/* ===================== CH (SIN CAMBIOS) ===================== */
-let tramosCHCache = {};
+const d=inscritosCache[num]||{};
 
-function engancharTramosSoloParaCH(id){
-  onValue(ref(db, `IDs/${id}/tramos`), snap=>{
-    tramosCHCache = snap.val() || {};
-    cargarSelectorCH();
-    pintarCH();
-  });
-}
+const tr=document.createElement("tr");
 
-$("selectorID_CH").addEventListener("change", ()=>{
-  engancharTramosSoloParaCH($("selectorID_CH").value);
+tr.innerHTML=`
+
+<td>${num}</td>
+<td>${d.equipo||""}</td>
+<td>${d.piloto||""}</td>
+<td>${d.copiloto||""}</td>
+<td>${d.vehiculo||""}</td>
+<td>${d.grupo||""}</td>
+<td>${d.clase||""}</td>
+<td>${d.categoria||""}</td>
+<td>${d.agrupacion||""}</td>
+<td>${d.copa||""}</td>
+
+`;
+
+tbody.appendChild(tr);
+
 });
 
-$("selectorCH").addEventListener("change", ()=>{
-  pintarCH();
-});
-
-function cargarSelectorCH(){
-  const sel = $("selectorCH");
-  const prev = sel.value;
-
-  const puestos = tramosCHCache?.TC0?.puestos || {};
-  const chKeys = Object.keys(puestos).filter(k => k.toUpperCase().startsWith("CH"));
-
-  sel.innerHTML = `<option value="TODOS">TODOS</option>`;
-  chKeys.sort((a,b)=>{
-    const na = parseInt(a.replace(/\D+/g,"")||"0",10);
-    const nb = parseInt(b.replace(/\D+/g,"")||"0",10);
-    return na - nb;
-  }).forEach(ch=>{
-    sel.innerHTML += `<option value="${ch}">${ch}</option>`;
-  });
-
-  if(prev && [...sel.options].some(o=>o.value===prev)) sel.value = prev;
 }
 
-function pintarCH(){
-  const tbody = $("tablaCH").querySelector("tbody");
-  tbody.innerHTML = "";
 
-  const id = $("selectorID_CH").value;
-  if(!id){
-    $("estadoCH").textContent = "No hay ID seleccionado.";
-    return;
-  }
 
-  const puestos = tramosCHCache?.TC0?.puestos || {};
-  const selCH = $("selectorCH").value || "TODOS";
-
-  let filas = [];
-
-  Object.keys(puestos).forEach(chKey=>{
-    if(selCH !== "TODOS" && chKey !== selCH) return;
-
-    const tiempos = puestos?.[chKey]?.tiempos || {};
-    Object.values(tiempos).forEach(reg=>{
-      const dorsal = reg?.dorsal;
-      const hora = reg?.tiempo;
-      if(!dorsal || !hora) return;
-
-      filas.push({ ch: chKey, dorsal, hora });
-    });
-  });
-
-  filas.sort((a,b)=>{
-    const na = parseInt(a.ch.replace(/\D+/g,"")||"0",10);
-    const nb = parseInt(b.ch.replace(/\D+/g,"")||"0",10);
-    if(na !== nb) return na - nb;
-    return String(a.hora).localeCompare(String(b.hora));
-  });
-
-  filas.forEach(f=>{
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${f.ch}</td>
-      <td>${f.dorsal}</td>
-      <td>${f.hora}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  $("estadoCH").textContent = `ID ${id} · Registros CH: ${filas.length}`;
-}
-
-function initCH(){
-  const id = $("selectorID_CH").value;
-  if(id) engancharTramosSoloParaCH(id);
-}
-setTimeout(initCH, 500);
-
-mostrarPanel("tiempos");
 </script>
 
 </body>

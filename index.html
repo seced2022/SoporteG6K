@@ -210,7 +210,7 @@ th,td{
 
   <br><br>
 
-  Nº <input id="i_num" size="4">
+  Nº <input id="i_num" size="4" oninput="cargarInscritoSiExiste()">
   Equipo <input id="i_equ">
   Piloto <input id="i_pil">
   Copiloto <input id="i_cop">
@@ -1116,6 +1116,30 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
 }
 
 /* ================= INSCRITOS ================= */
+
+window.cargarInscritoSiExiste = function(){
+
+  const dorsal = $("i_num").value.trim();
+  if(!dorsal) return;
+
+  const d = inscritosCache[dorsal];
+  if(!d) return;
+
+  $("i_equ").value = d.equipo || "";
+  $("i_pil").value = d.piloto || "";
+  $("i_cop").value = d.copiloto || "";
+  $("i_veh").value = d.vehiculo || "";
+
+  $("i_gru").value = d.grupo || "";
+  $("i_cla").value = d.clase || "";
+  $("i_cat").value = d.categoria || "";
+  $("i_agr").value = d.agrupacion || "";
+  $("i_copa").value = d.copa || "";
+
+  $("estadoInscritos").textContent = "Dorsal cargado para edición";
+
+};
+
 window.guardarInscrito = async function(){
   const id = $("idInscritos").value;
   const num = $("i_num").value.trim();

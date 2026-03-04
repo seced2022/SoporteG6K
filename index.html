@@ -169,9 +169,6 @@ th,td{
   font-weight:bold;
 }
 .export-btn:hover{ border-color:#00aa44; }
-
-.miniimg{height:16px; vertical-align:middle; margin-left:6px; border-radius:3px; border:1px solid #333; background:#222;}
-.fileline{margin-top:6px;}
 </style>
 </head>
 
@@ -218,19 +215,6 @@ th,td{
   Piloto <input id="i_pil">
   Copiloto <input id="i_cop">
   Vehículo <input id="i_veh">
-<br class="fileline"><br class="fileline">
-<span>Bandera Piloto (PNG)</span>
-<input type="file" id="file_flag_pil" accept="image/png">
-<img id="prev_flag_pil" class="miniimg" style="display:none">
-
-<span style="margin-left:10px;">Bandera Copiloto (PNG)</span>
-<input type="file" id="file_flag_cop" accept="image/png">
-<img id="prev_flag_cop" class="miniimg" style="display:none">
-
-<span style="margin-left:10px;">Imagen Vehículo (PNG)</span>
-<input type="file" id="file_veh" accept="image/png">
-<img id="prev_veh" class="miniimg" style="display:none">
-
 
   <br><br>
 
@@ -311,7 +295,6 @@ th,td{
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, set, update, onValue, get, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
@@ -325,67 +308,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const storage = getStorage(app);
 
 const $ = (id)=>document.getElementById(id);
-
-function setPreviewFromUrl(imgId, url){
-  const img = $(imgId);
-  if(!img) return;
-  if(!url){
-    img.style.display = "none";
-    img.src = "";
-    return;
-  }
-  img.src = url;
-  img.style.display = "inline-block";
-}
-
-function setPreviewFromFile(imgId, file){
-  const img = $(imgId);
-  if(!img) return;
-  if(!file){
-    img.style.display = "none";
-    img.src = "";
-    return;
-  }
-  const objectUrl = URL.createObjectURL(file);
-  img.src = objectUrl;
-  img.style.display = "inline-block";
-  // Revoke later to avoid leaks
-  setTimeout(()=>URL.revokeObjectURL(objectUrl), 60000);
-}
-
-async function subirPNGInscrito(idRally, dorsal, tipo, file){
-  if(!file) return "";
-  if(file.type !== "image/png"){
-    alert("Solo se permite PNG en " + tipo);
-    return "";
-  }
-  const path = `rallies/${idRally}/inscritos/${dorsal}/${tipo}.png`;
-  const storageRef = sRef(storage, path);
-  await uploadBytes(storageRef, file, { contentType: "image/png" });
-  return await getDownloadURL(storageRef);
-}
-
-// Previews en vivo al seleccionar archivo
-function engancharPreviewsBandera(){
-  const f1 = $("file_flag_pil");
-  const f2 = $("file_flag_cop");
-  const f3 = $("file_veh");
-  if(f1 && !f1._hooked){
-    f1.addEventListener("change", ()=>setPreviewFromFile("prev_flag_pil", f1.files[0]));
-    f1._hooked = true;
-  }
-  if(f2 && !f2._hooked){
-    f2.addEventListener("change", ()=>setPreviewFromFile("prev_flag_cop", f2.files[0]));
-    f2._hooked = true;
-  }
-  if(f3 && !f3._hooked){
-    f3.addEventListener("change", ()=>setPreviewFromFile("prev_veh", f3.files[0]));
-    f3._hooked = true;
-  }
-}
 
 window.mostrarPanel = function(id){
   document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
@@ -1212,14 +1136,6 @@ window.cargarInscritoSiExiste = function(){
   $("i_agr").value = d.agrupacion || "";
   $("i_copa").value = d.copa || "";
 
-  setPreviewFromUrl("prev_flag_pil", d.bandera_piloto || "");
-  setPreviewFromUrl("prev_flag_cop", d.bandera_copiloto || "");
-  setPreviewFromUrl("prev_veh", d.imagen_vehiculo || "");
-
-  if($("file_flag_pil")) $("file_flag_pil").value = "";
-  if($("file_flag_cop")) $("file_flag_cop").value = "";
-  if($("file_veh")) $("file_veh").value = "";
-
   $("estadoInscritos").textContent = "Dorsal cargado para edición";
 
 };
@@ -1229,32 +1145,11 @@ window.guardarInscrito = async function(){
   const num = $("i_num").value.trim();
   if(!id || !num){ alert("Falta ID o Nº"); return; }
 
-  
-  // --- Subida de imágenes (PNG) a Firebase Storage (solo si seleccionas archivo) ---
-  const existente = inscritosCache?.[num] || {};
-
-  let bandera_piloto = existente.bandera_piloto || "";
-  let bandera_copiloto = existente.bandera_copiloto || "";
-  let imagen_vehiculo = existente.imagen_vehiculo || "";
-
-  const fPil = $("file_flag_pil")?.files?.[0] || null;
-  const fCop = $("file_flag_cop")?.files?.[0] || null;
-  const fVeh = $("file_veh")?.files?.[0] || null;
-
-  // Subimos solo lo que se haya elegido
-  if(fPil) bandera_piloto = await subirPNGInscrito(id, num, "bandera_piloto", fPil);
-  if(fCop) bandera_copiloto = await subirPNGInscrito(id, num, "bandera_copiloto", fCop);
-  if(fVeh) imagen_vehiculo = await subirPNGInscrito(id, num, "vehiculo", fVeh);
-
-const data = {
+  const data = {
     equipo: $("i_equ").value,
     piloto: $("i_pil").value,
     copiloto: $("i_cop").value,
     vehiculo: $("i_veh").value,
-
-    bandera_piloto: bandera_piloto,
-    bandera_copiloto: bandera_copiloto,
-    imagen_vehiculo: imagen_vehiculo,
     grupo: $("i_gru").value,
     clase: $("i_cla").value,
     categoria: $("i_cat").value,
@@ -1283,9 +1178,9 @@ function pintarTablaInscritos(){
     tr.innerHTML = `
       <td>${num}</td>
       <td>${d.equipo||""}</td>
-      <td>${(d.bandera_piloto?'<img src="'+d.bandera_piloto+'" class="miniimg" style="margin-left:0;margin-right:6px;">':'')}${d.piloto||""}</td>
-      <td>${(d.bandera_copiloto?'<img src="'+d.bandera_copiloto+'" class="miniimg" style="margin-left:0;margin-right:6px;">':'')}${d.copiloto||""}</td>
-      <td>${(d.imagen_vehiculo?'<img src="'+d.imagen_vehiculo+'" class="miniimg" style="margin-left:0;margin-right:6px;">':'')}${d.vehiculo||""}</td>
+      <td>${d.piloto||""}</td>
+      <td>${d.copiloto||""}</td>
+      <td>${d.vehiculo||""}</td>
       <td>${d.grupo||""}</td>
       <td>${d.clase||""}</td>
       <td>${d.categoria||""}</td>
@@ -1388,7 +1283,6 @@ function initCH(){
 }
 setTimeout(initCH, 500);
 
-engancharPreviewsBandera();
 mostrarPanel("tiempos");
 </script>
 

@@ -249,6 +249,13 @@ th,td{
   Copa <input id="i_copa" size="6">
 
   <br><br>
+
+  <label style="display:inline-flex; align-items:center; gap:6px;">
+    <input type="checkbox" id="i_clasificar">
+    ✅ Incluir en clasificaciones
+  </label>
+
+  <br><br>
   <button class="btn" onclick="guardarInscrito()">Guardar</button>
   <span id="estadoInscritos" class="small"></span>
 
@@ -268,6 +275,7 @@ th,td{
         <th>Categoría</th>
         <th>Agrupación</th>
         <th>Copa</th>
+        <th>Clasificar</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -928,6 +936,10 @@ function getVehiculo(num){
   return inscritosCache?.[num]?.vehiculo || "";
 }
 
+function dorsalClasificable(num){
+  return inscritosCache?.[num]?.clasificar === true;
+}
+
 /* ================= TIEMPOS: cálculo de clasificación por TC (NUEVO) =================
    - Devuelve SOLO dorsales numéricos (para exportar limpio)
    - Calcula diff si hay S y LL; si falta, marca EN CURSO (ms = null)
@@ -1009,7 +1021,7 @@ window.exportarTCsAbiertosCSV = function(){
   }
 
   abiertos.forEach(tc=>{
-    const filas = calcularClasificacionTC(tc);
+    const filas = calcularClasificacionTC(tc).filter(f=>dorsalClasificable(f.dorsal));
 
     let csv = "POS;TC;DORSAL;PILOTO;COPILOTO;VEHICULO;SALIDA;LLEGADA;TIEMPO\n";
     filas.forEach((f, idx)=>{
@@ -1051,6 +1063,7 @@ window.exportarGeneralCSV = function(){
     const filasTC = calcularClasificacionTC(tc);
     filasTC.forEach(f=>{
       if(f.tiempoMs == null) return; // no suma EN CURSO / ERROR
+      if(!dorsalClasificable(f.dorsal)) return;
       if(!acc[f.dorsal]){
         acc[f.dorsal] = { totalMs:0, tramosOK:0, detalles:{} };
       }
@@ -1316,6 +1329,7 @@ window.cargarInscritoSiExiste = function(){
   $("i_cat").value = d.categoria || "";
   $("i_agr").value = d.agrupacion || "";
   $("i_copa").value = d.copa || "";
+  $("i_clasificar").checked = !!d.clasificar;
 
   actualizarPreviewInscrito("pil");
   actualizarPreviewInscrito("cop");
@@ -1342,7 +1356,8 @@ window.guardarInscrito = async function(){
     clase: $("i_cla").value,
     categoria: $("i_cat").value,
     agrupacion: $("i_agr").value,
-    copa: $("i_copa").value
+    copa: $("i_copa").value,
+    clasificar: $("i_clasificar").checked
   };
 
   await set(ref(db, `IDs/${id}/inscritos/${num}`), data);
@@ -1351,6 +1366,7 @@ window.guardarInscrito = async function(){
   $("i_flag_pil").value = "";
   $("i_flag_cop").value = "";
   $("i_img_veh").value = "";
+  $("i_clasificar").checked = false;
   actualizarPreviewInscrito("pil");
   actualizarPreviewInscrito("cop");
   actualizarPreviewInscrito("veh");
@@ -1383,6 +1399,7 @@ function pintarTablaInscritos(){
       <td>${d.categoria||""}</td>
       <td>${d.agrupacion||""}</td>
       <td>${d.copa||""}</td>
+      <td>${d.clasificar ? "✅" : ""}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -1409,6 +1426,16 @@ function obtenerFiltrosPDF(){
   };
 }
 
+
+function calcularClasificacionTCClasificables(tc, filtros = {}){
+  const lista = calcularClasificacionTC(tc);
+  return lista.filter(f=>{
+    if(!dorsalClasificable(f.dorsal)) return false;
+    const d = inscritosCache?.[f.dorsal] || {};
+    return coincideFiltrosInscrito(d, filtros);
+  });
+}
+
 function calcularGeneralFiltrado(filtros = {}){
   const tcs = obtenerListaTCs();
   const acc = {};
@@ -1419,6 +1446,7 @@ function calcularGeneralFiltrado(filtros = {}){
       if(f.tiempoMs == null) return;
       const d = inscritosCache?.[f.dorsal] || {};
 
+      if(!dorsalClasificable(f.dorsal)) return;
       if(!coincideFiltrosInscrito(d, filtros)) return;
 
       if(!acc[f.dorsal]){
@@ -1454,6 +1482,7 @@ function calcularGeneralFiltrado(filtros = {}){
 function calcularTramoFiltrado(tc, filtros = {}){
   const lista = calcularClasificacionTC(tc);
   return lista.filter(f=>{
+    if(!dorsalClasificable(f.dorsal)) return false;
     const d = inscritosCache?.[f.dorsal] || {};
     return coincideFiltrosInscrito(d, filtros);
   });

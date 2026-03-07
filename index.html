@@ -325,8 +325,13 @@ th,td{
   <h3>Clasificaciones PDF</h3>
 
   <div style="margin-bottom:10px;">
-    Título impresión:
-    <input id="pdfTitulo" style="min-width:320px" placeholder="Ej: Rally Villa de Ejemplo - Clasificación Oficial">
+    Título:
+    <input id="pdfTitulo" style="min-width:320px" placeholder="Ej: Rally Villa de Ejemplo">
+  </div>
+
+  <div style="margin-bottom:10px;">
+    Subtítulo:
+    <input id="pdfSubtitulo" style="min-width:320px" placeholder="Ej: Clasificación provisional">
   </div>
 
   <div style="margin-bottom:10px;">
@@ -335,26 +340,41 @@ th,td{
   </div>
 
   <div style="margin-bottom:10px;">
-    Tipo clasificación:
+    Tipo:
     <select id="selectorTipoPDF" onchange="actualizarFiltrosPDF()">
       <option value="GENERAL">General</option>
-      <option value="TRAMO">Tramo</option>
-      <option value="GRUPO">Grupo</option>
-      <option value="COPA">Copa</option>
-      <option value="AGRUPACION">Agrupación</option>
-      <option value="CLASE">Clase</option>
-      <option value="CATEGORIA">Categoría</option>
+      <option value="TRAMO">TC</option>
     </select>
   </div>
 
   <div id="filaFiltroTramo" style="margin-bottom:10px; display:none;">
-    Tramo:
+    TC:
     <select id="selectorTramoPDF"></select>
   </div>
 
-  <div id="filaFiltroCampo" style="margin-bottom:10px; display:none;">
-    Valor:
-    <select id="selectorValorPDF"></select>
+  <div style="margin-bottom:10px;">
+    Grupo:
+    <select id="selectorGrupoPDF"></select>
+  </div>
+
+  <div style="margin-bottom:10px;">
+    Copa:
+    <select id="selectorCopaPDF"></select>
+  </div>
+
+  <div style="margin-bottom:10px;">
+    Agrupación:
+    <select id="selectorAgrupacionPDF"></select>
+  </div>
+
+  <div style="margin-bottom:10px;">
+    Clase:
+    <select id="selectorClasePDF"></select>
+  </div>
+
+  <div style="margin-bottom:10px;">
+    Categoría:
+    <select id="selectorCategoriaPDF"></select>
   </div>
 
   <button class="btn" onclick="exportarClasificacionPDF()">Exportar PDF</button>
@@ -611,6 +631,10 @@ $("selectorID_PDF").addEventListener("change", ()=>{
 
 $("selectorTipoPDF").addEventListener("change", ()=>{
   actualizarFiltrosPDF();
+});
+
+["selectorGrupoPDF","selectorCopaPDF","selectorAgrupacionPDF","selectorClasePDF","selectorCategoriaPDF","selectorTramoPDF"].forEach(id=>{
+  $(id).addEventListener("change", ()=>{});
 });
 
 function engancharLecturasDeID(id){
@@ -1360,7 +1384,26 @@ function pintarTablaInscritos(){
 
 
 /* ================= CLASIFICACIONES PDF ================= */
-function calcularGeneralFiltrado(campo = null, valor = null){
+function coincideFiltrosInscrito(d, filtros){
+  if(filtros.grupo && String(d?.grupo || "") !== String(filtros.grupo)) return false;
+  if(filtros.copa && String(d?.copa || "") !== String(filtros.copa)) return false;
+  if(filtros.agrupacion && String(d?.agrupacion || "") !== String(filtros.agrupacion)) return false;
+  if(filtros.clase && String(d?.clase || "") !== String(filtros.clase)) return false;
+  if(filtros.categoria && String(d?.categoria || "") !== String(filtros.categoria)) return false;
+  return true;
+}
+
+function obtenerFiltrosPDF(){
+  return {
+    grupo: $("selectorGrupoPDF")?.value || "",
+    copa: $("selectorCopaPDF")?.value || "",
+    agrupacion: $("selectorAgrupacionPDF")?.value || "",
+    clase: $("selectorClasePDF")?.value || "",
+    categoria: $("selectorCategoriaPDF")?.value || ""
+  };
+}
+
+function calcularGeneralFiltrado(filtros = {}){
   const tcs = obtenerListaTCs();
   const acc = {};
 
@@ -1370,7 +1413,7 @@ function calcularGeneralFiltrado(campo = null, valor = null){
       if(f.tiempoMs == null) return;
       const d = inscritosCache?.[f.dorsal] || {};
 
-      if(campo && String(d[campo] || "") !== String(valor || "")) return;
+      if(!coincideFiltrosInscrito(d, filtros)) return;
 
       if(!acc[f.dorsal]){
         acc[f.dorsal] = {
@@ -1402,49 +1445,53 @@ function calcularGeneralFiltrado(campo = null, valor = null){
   return lista;
 }
 
+function calcularTramoFiltrado(tc, filtros = {}){
+  const lista = calcularClasificacionTC(tc);
+  return lista.filter(f=>{
+    const d = inscritosCache?.[f.dorsal] || {};
+    return coincideFiltrosInscrito(d, filtros);
+  });
+}
+
+function rellenarSelectFiltroPDF(selectId, valores){
+  const sel = $(selectId);
+  if(!sel) return;
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">Todos</option>';
+  valores.forEach(v=>{
+    sel.innerHTML += `<option value="${v}">${v}</option>`;
+  });
+  if(actual && [...sel.options].some(o=>o.value === actual)) sel.value = actual;
+}
+
 window.actualizarFiltrosPDF = function(){
   const tipo = $("selectorTipoPDF")?.value || "GENERAL";
   const filaTramo = $("filaFiltroTramo");
-  const filaCampo = $("filaFiltroCampo");
   const selTramo = $("selectorTramoPDF");
-  const selValor = $("selectorValorPDF");
 
-  if(!filaTramo || !filaCampo || !selTramo || !selValor) return;
-
-  filaTramo.style.display = (tipo === "TRAMO") ? "block" : "none";
-  filaCampo.style.display = (["GRUPO","COPA","AGRUPACION","CLASE","CATEGORIA"].includes(tipo)) ? "block" : "none";
-
-  if(tipo === "TRAMO"){
-    const actual = selTramo.value;
-    selTramo.innerHTML = "";
-    obtenerListaTCs().forEach(tc=>{
-      selTramo.innerHTML += `<option value="${tc}">${tc}</option>`;
-    });
-    if(actual && [...selTramo.options].some(o=>o.value===actual)) selTramo.value = actual;
+  if(filaTramo && selTramo){
+    filaTramo.style.display = (tipo === "TRAMO") ? "block" : "none";
+    if(tipo === "TRAMO"){
+      const actual = selTramo.value;
+      selTramo.innerHTML = "";
+      obtenerListaTCs().forEach(tc=>{
+        selTramo.innerHTML += `<option value="${tc}">${tc}</option>`;
+      });
+      if(actual && [...selTramo.options].some(o=>o.value === actual)) selTramo.value = actual;
+    }
   }
 
-  if(["GRUPO","COPA","AGRUPACION","CLASE","CATEGORIA"].includes(tipo)){
-    const mapa = {
-      GRUPO: "grupo",
-      COPA: "copa",
-      AGRUPACION: "agrupacion",
-      CLASE: "clase",
-      CATEGORIA: "categoria"
-    };
-    const campo = mapa[tipo];
-    const actual = selValor.value;
-    const valores = [...new Set(
-      Object.values(inscritosCache || {})
-        .map(d => String(d?.[campo] || "").trim())
-        .filter(Boolean)
-    )].sort();
+  const valoresGrupo = [...new Set(Object.values(inscritosCache || {}).map(d => String(d?.grupo || "").trim()).filter(Boolean))].sort();
+  const valoresCopa = [...new Set(Object.values(inscritosCache || {}).map(d => String(d?.copa || "").trim()).filter(Boolean))].sort();
+  const valoresAgr = [...new Set(Object.values(inscritosCache || {}).map(d => String(d?.agrupacion || "").trim()).filter(Boolean))].sort();
+  const valoresClase = [...new Set(Object.values(inscritosCache || {}).map(d => String(d?.clase || "").trim()).filter(Boolean))].sort();
+  const valoresCat = [...new Set(Object.values(inscritosCache || {}).map(d => String(d?.categoria || "").trim()).filter(Boolean))].sort();
 
-    selValor.innerHTML = "";
-    valores.forEach(v=>{
-      selValor.innerHTML += `<option value="${v}">${v}</option>`;
-    });
-    if(actual && [...selValor.options].some(o=>o.value===actual)) selValor.value = actual;
-  }
+  rellenarSelectFiltroPDF("selectorGrupoPDF", valoresGrupo);
+  rellenarSelectFiltroPDF("selectorCopaPDF", valoresCopa);
+  rellenarSelectFiltroPDF("selectorAgrupacionPDF", valoresAgr);
+  rellenarSelectFiltroPDF("selectorClasePDF", valoresClase);
+  rellenarSelectFiltroPDF("selectorCategoriaPDF", valoresCat);
 };
 
 window.exportarClasificacionPDF = function(){
@@ -1459,59 +1506,57 @@ window.exportarClasificacionPDF = function(){
 
     const tipo = $("selectorTipoPDF").value;
     const titulo = $("pdfTitulo").value.trim() || "Clasificación";
+    const subtitulo = $("pdfSubtitulo").value.trim() || "";
     const id = $("selectorID_PDF").value || currentID || "";
-    let subTitulo = "";
+    const filtros = obtenerFiltrosPDF();
+
+    let cabeceraSecundaria = "";
     let filas = [];
     let head = [];
 
     if(tipo === "GENERAL"){
-      const lista = calcularGeneralFiltrado();
+      const lista = calcularGeneralFiltrado(filtros);
       head = [["POS","Nº","Piloto","Copiloto","Vehículo","Tramos OK","Total"]];
       filas = lista.map((f, i)=>[i+1, f.dorsal, f.piloto, f.copiloto, f.vehiculo, f.tramosOK, f.total]);
-      subTitulo = `${id} · General`;
-    }
-    else if(tipo === "TRAMO"){
+      cabeceraSecundaria = `${id} · General`;
+    } else {
       const tc = $("selectorTramoPDF").value;
-      const lista = calcularClasificacionTC(tc);
+      const lista = calcularTramoFiltrado(tc, filtros);
       head = [["POS","TC","Nº","Piloto","Copiloto","Vehículo","Salida","Llegada","Tiempo"]];
       filas = lista.map((f, i)=>[i+1, tc, f.dorsal, f.piloto, f.copiloto, f.vehiculo, f.salida, f.llegada, f.tiempo]);
-      subTitulo = `${id} · ${tc}`;
-    }
-    else{
-      const mapa = {
-        GRUPO: "grupo",
-        COPA: "copa",
-        AGRUPACION: "agrupacion",
-        CLASE: "clase",
-        CATEGORIA: "categoria"
-      };
-      const etiquetas = {
-        GRUPO: "Grupo",
-        COPA: "Copa",
-        AGRUPACION: "Agrupación",
-        CLASE: "Clase",
-        CATEGORIA: "Categoría"
-      };
-      const campo = mapa[tipo];
-      const valor = $("selectorValorPDF").value;
-      const lista = calcularGeneralFiltrado(campo, valor);
-      head = [["POS","Nº","Piloto","Copiloto","Vehículo","Tramos OK","Total"]];
-      filas = lista.map((f, i)=>[i+1, f.dorsal, f.piloto, f.copiloto, f.vehiculo, f.tramosOK, f.total]);
-      subTitulo = `${id} · ${etiquetas[tipo]}: ${valor}`;
+      cabeceraSecundaria = `${id} · ${tc}`;
     }
 
+    const filtrosTxt = [];
+    if(filtros.grupo) filtrosTxt.push("Grupo: " + filtros.grupo);
+    if(filtros.copa) filtrosTxt.push("Copa: " + filtros.copa);
+    if(filtros.agrupacion) filtrosTxt.push("Agrupación: " + filtros.agrupacion);
+    if(filtros.clase) filtrosTxt.push("Clase: " + filtros.clase);
+    if(filtros.categoria) filtrosTxt.push("Categoría: " + filtros.categoria);
+
     if(!filas.length){
-      $("estadoPDF").textContent = "No hay datos para exportar en ese filtro.";
+      $("estadoPDF").textContent = "No hay datos para exportar con esos filtros.";
       return;
     }
 
     doc.setFontSize(14);
     doc.text(titulo, 14, 15);
+
+    if(subtitulo){
+      doc.setFontSize(11);
+      doc.text(subtitulo, 14, 21);
+    }
+
     doc.setFontSize(10);
-    doc.text(subTitulo, 14, 22);
+    doc.text(cabeceraSecundaria, 14, subtitulo ? 27 : 22);
+
+    if(filtrosTxt.length){
+      doc.setFontSize(9);
+      doc.text(filtrosTxt.join(" · "), 14, subtitulo ? 33 : 28);
+    }
 
     doc.autoTable({
-      startY: 28,
+      startY: filtrosTxt.length ? (subtitulo ? 38 : 33) : (subtitulo ? 32 : 27),
       head: head,
       body: filas,
       styles: { fontSize: 8 },
@@ -1519,7 +1564,9 @@ window.exportarClasificacionPDF = function(){
       margin: { left: 8, right: 8 }
     });
 
-    const safe = (titulo || "clasificacion").replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_");
+    const safe = (titulo || "clasificacion")
+      .replace(/[\\/:*?"<>|]+/g, "_")
+      .replace(/\s+/g, "_");
     doc.save(`${safe}_${tipo}_${id}.pdf`);
     $("estadoPDF").textContent = "PDF exportado correctamente.";
   }catch(err){

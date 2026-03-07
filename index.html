@@ -169,17 +169,6 @@ th,td{
   font-weight:bold;
 }
 .export-btn:hover{ border-color:#00aa44; }
-
-.mini-prev{
-  height:16px;
-  vertical-align:middle;
-  margin-left:6px;
-  border:1px solid #333;
-  background:#222;
-}
-.sel-img{
-  min-width:160px;
-}
 </style>
 </head>
 
@@ -192,6 +181,7 @@ th,td{
   <button class="btn" onclick="mostrarPanel('inscritos')">Inscritos</button>
   <button class="btn" onclick="mostrarPanel('tiempos')">Tiempos</button>
   <button class="btn" onclick="mostrarPanel('ch')">CH</button>
+  <button class="btn" onclick="mostrarPanel('clasificaciones')">Clasificaciones</button>
 </div>
 
 <!-- ================= CREAR RALLY ================= -->
@@ -224,20 +214,8 @@ th,td{
   Nº <input id="i_num" size="4" oninput="cargarInscritoSiExiste()">
   Equipo <input id="i_equ">
   Piloto <input id="i_pil">
-  <select id="i_flag_pil" class="sel-img" onchange="actualizarPreviewInscrito('pil')"></select>
-  <img id="prev_flag_pil" class="mini-prev" style="display:none">
-
-  <br><br>
-
   Copiloto <input id="i_cop">
-  <select id="i_flag_cop" class="sel-img" onchange="actualizarPreviewInscrito('cop')"></select>
-  <img id="prev_flag_cop" class="mini-prev" style="display:none">
-
-  <br><br>
-
   Vehículo <input id="i_veh">
-  <select id="i_img_veh" class="sel-img" onchange="actualizarPreviewInscrito('veh')"></select>
-  <img id="prev_img_veh" class="mini-prev" style="display:none">
 
   <br><br>
 
@@ -257,11 +235,8 @@ th,td{
         <th>Nº</th>
         <th>Equipo</th>
         <th>Piloto</th>
-        <th>Band. P</th>
         <th>Copiloto</th>
-        <th>Band. C</th>
         <th>Vehículo</th>
-        <th>Img. Veh.</th>
         <th>Grupo</th>
         <th>Clase</th>
         <th>Categoría</th>
@@ -318,6 +293,50 @@ th,td{
   <div id="estadoCH" class="small"></div>
 </div>
 
+
+<!-- ================= CLASIFICACIONES ================= -->
+<div id="clasificaciones" class="panel">
+  <h3>Clasificaciones PDF</h3>
+
+  <div style="margin-bottom:10px;">
+    Título impresión:
+    <input id="pdfTitulo" style="min-width:320px" placeholder="Ej: Rally Villa de Ejemplo - Clasificación Oficial">
+  </div>
+
+  <div style="margin-bottom:10px;">
+    ID:
+    <select id="selectorID_PDF"></select>
+  </div>
+
+  <div style="margin-bottom:10px;">
+    Tipo clasificación:
+    <select id="selectorTipoPDF" onchange="actualizarFiltrosPDF()">
+      <option value="GENERAL">General</option>
+      <option value="TRAMO">Tramo</option>
+      <option value="GRUPO">Grupo</option>
+      <option value="COPA">Copa</option>
+      <option value="AGRUPACION">Agrupación</option>
+      <option value="CLASE">Clase</option>
+      <option value="CATEGORIA">Categoría</option>
+    </select>
+  </div>
+
+  <div id="filaFiltroTramo" style="margin-bottom:10px; display:none;">
+    Tramo:
+    <select id="selectorTramoPDF"></select>
+  </div>
+
+  <div id="filaFiltroCampo" style="margin-bottom:10px; display:none;">
+    Valor:
+    <select id="selectorValorPDF"></select>
+  </div>
+
+  <button class="btn" onclick="exportarClasificacionPDF()">Exportar PDF</button>
+  <div id="estadoPDF" class="small" style="margin-top:8px;"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, set, update, onValue, get, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -351,67 +370,6 @@ function estadoRally(msg, isErr=false){
 function tiemposInit(){
   return { "_init": true };
 }
-
-/* ================= IMÁGENES FIJAS (EDITA SOLO AQUÍ SI CAMBIAN RUTAS) ================= */
-const BANDERAS = [
-  { nombre:"-- Sin bandera --", archivo:"" },
-  { nombre:"España", archivo:"img/banderas/es.png" },
-  { nombre:"Francia", archivo:"img/banderas/fr.png" },
-  { nombre:"Portugal", archivo:"img/banderas/pt.png" },
-  { nombre:"Italia", archivo:"img/banderas/it.png" },
-  { nombre:"Alemania", archivo:"img/banderas/de.png" },
-  { nombre:"Reino Unido", archivo:"img/banderas/gb.png" }
-];
-
-const VEHICULOS_IMG = [
-  { nombre:"-- Sin imagen --", archivo:"" },
-  { nombre:"Citroën", archivo:"img/veiculos/citroen.png" },
-  { nombre:"Ford", archivo:"img/veiculos/ford.png" },
-  { nombre:"Hyundai", archivo:"img/veiculos/hyundai.png" },
-  { nombre:"Peugeot", archivo:"img/veiculos/peugeot.png" },
-  { nombre:"Renault", archivo:"img/veiculos/renault.png" },
-  { nombre:"Skoda", archivo:"img/veiculos/skoda.png" },
-  { nombre:"Toyota", archivo:"img/veiculos/toyota.png" }
-];
-
-function rellenarSelectImagenes(){
-  const selPil = $("i_flag_pil");
-  const selCop = $("i_flag_cop");
-  const selVeh = $("i_img_veh");
-  if(!selPil || !selCop || !selVeh) return;
-
-  if(selPil.options.length === 0){
-    BANDERAS.forEach(item=>{
-      selPil.innerHTML += `<option value="${item.archivo}">${item.nombre}</option>`;
-      selCop.innerHTML += `<option value="${item.archivo}">${item.nombre}</option>`;
-    });
-    VEHICULOS_IMG.forEach(item=>{
-      selVeh.innerHTML += `<option value="${item.archivo}">${item.nombre}</option>`;
-    });
-  }
-}
-
-window.actualizarPreviewInscrito = function(tipo){
-  let selectId = "";
-  let imgId = "";
-
-  if(tipo === "pil"){ selectId = "i_flag_pil"; imgId = "prev_flag_pil"; }
-  if(tipo === "cop"){ selectId = "i_flag_cop"; imgId = "prev_flag_cop"; }
-  if(tipo === "veh"){ selectId = "i_img_veh"; imgId = "prev_img_veh"; }
-
-  const ruta = $(selectId)?.value || "";
-  const img = $(imgId);
-  if(!img) return;
-
-  if(!ruta){
-    img.style.display = "none";
-    img.src = "";
-    return;
-  }
-
-  img.src = ruta;
-  img.style.display = "inline-block";
-};
 
 /* ================= VALIDACIONES ================= */
 function esHoraValida(h){
@@ -506,28 +464,34 @@ onValue(ref(db,"IDs"), snap=>{
   const selT = $("selectorID");
   const selI = $("idInscritos");
   const selCH_ID = $("selectorID_CH");
+  const selPDF = $("selectorID_PDF");
 
   const prevT = selT.value;
   const prevI = selI.value;
   const prevCH = selCH_ID.value;
+  const prevPDF = selPDF.value;
 
   selT.innerHTML="";
   selI.innerHTML="";
   selCH_ID.innerHTML="";
+  selPDF.innerHTML="";
 
   ids.forEach(id=>{
     selT.innerHTML += `<option>${id}</option>`;
     selI.innerHTML += `<option>${id}</option>`;
     selCH_ID.innerHTML += `<option>${id}</option>`;
+    selPDF.innerHTML += `<option>${id}</option>`;
   });
 
   if(prevT && ids.includes(prevT)) selT.value = prevT;
   if(prevI && ids.includes(prevI)) selI.value = prevI;
   if(prevCH && ids.includes(prevCH)) selCH_ID.value = prevCH;
+  if(prevPDF && ids.includes(prevPDF)) selPDF.value = prevPDF;
 
   if(!selT.value && ids.length) selT.value = ids[0];
   if(!selI.value && ids.length) selI.value = ids[0];
   if(!selCH_ID.value && ids.length) selCH_ID.value = ids[0];
+  if(!selPDF.value && ids.length) selPDF.value = ids[0];
 
   if(selT.value && selT.value !== currentID){
     currentID = selT.value;
@@ -539,7 +503,6 @@ onValue(ref(db,"IDs"), snap=>{
     engancharLecturasDeID(currentID);
   }
 
-  rellenarSelectImagenes();
   pintarCH();
 });
 
@@ -551,6 +514,10 @@ $("selectorID").addEventListener("change", ()=>{
 
 $("idInscritos").addEventListener("change", ()=>{
   engancharInscritos($("idInscritos").value);
+});
+
+$("selectorID_PDF").addEventListener("change", ()=>{
+  actualizarFiltrosPDF();
 });
 
 function engancharLecturasDeID(id){
@@ -1215,21 +1182,14 @@ window.cargarInscritoSiExiste = function(){
 
   $("i_equ").value = d.equipo || "";
   $("i_pil").value = d.piloto || "";
-  $("i_flag_pil").value = d.bandera_piloto || "";
   $("i_cop").value = d.copiloto || "";
-  $("i_flag_cop").value = d.bandera_copiloto || "";
   $("i_veh").value = d.vehiculo || "";
-  $("i_img_veh").value = d.imagen_vehiculo || "";
 
   $("i_gru").value = d.grupo || "";
   $("i_cla").value = d.clase || "";
   $("i_cat").value = d.categoria || "";
   $("i_agr").value = d.agrupacion || "";
   $("i_copa").value = d.copa || "";
-
-  actualizarPreviewInscrito("pil");
-  actualizarPreviewInscrito("cop");
-  actualizarPreviewInscrito("veh");
 
   $("estadoInscritos").textContent = "Dorsal cargado para edición";
 
@@ -1243,11 +1203,8 @@ window.guardarInscrito = async function(){
   const data = {
     equipo: $("i_equ").value,
     piloto: $("i_pil").value,
-    bandera_piloto: $("i_flag_pil").value,
     copiloto: $("i_cop").value,
-    bandera_copiloto: $("i_flag_cop").value,
     vehiculo: $("i_veh").value,
-    imagen_vehiculo: $("i_img_veh").value,
     grupo: $("i_gru").value,
     clase: $("i_cla").value,
     categoria: $("i_cat").value,
@@ -1258,12 +1215,6 @@ window.guardarInscrito = async function(){
   await set(ref(db, `IDs/${id}/inscritos/${num}`), data);
   $("estadoInscritos").textContent = "✅ Guardado";
   ["i_num","i_equ","i_pil","i_cop","i_veh","i_gru","i_cla","i_cat","i_agr","i_copa"].forEach(x=>$(x).value="");
-  $("i_flag_pil").value = "";
-  $("i_flag_cop").value = "";
-  $("i_img_veh").value = "";
-  actualizarPreviewInscrito("pil");
-  actualizarPreviewInscrito("cop");
-  actualizarPreviewInscrito("veh");
 };
 
 window.filtrarInscritos = function(){ pintarTablaInscritos(); };
@@ -1283,11 +1234,8 @@ function pintarTablaInscritos(){
       <td>${num}</td>
       <td>${d.equipo||""}</td>
       <td>${d.piloto||""}</td>
-      <td>${d.bandera_piloto ? '<img src="'+d.bandera_piloto+'" class="mini-prev">' : ""}</td>
       <td>${d.copiloto||""}</td>
-      <td>${d.bandera_copiloto ? '<img src="'+d.bandera_copiloto+'" class="mini-prev">' : ""}</td>
       <td>${d.vehiculo||""}</td>
-      <td>${d.imagen_vehiculo ? '<img src="'+d.imagen_vehiculo+'" class="mini-prev">' : ""}</td>
       <td>${d.grupo||""}</td>
       <td>${d.clase||""}</td>
       <td>${d.categoria||""}</td>
@@ -1297,6 +1245,162 @@ function pintarTablaInscritos(){
     tbody.appendChild(tr);
   });
 }
+
+
+/* ================= CLASIFICACIONES PDF ================= */
+function calcularGeneralFiltrado(campo = null, valor = null){
+  const tcs = obtenerListaTCs();
+  const acc = {};
+
+  tcs.forEach(tc=>{
+    const filasTC = calcularClasificacionTC(tc);
+    filasTC.forEach(f=>{
+      if(f.tiempoMs == null) return;
+      const d = inscritosCache?.[f.dorsal] || {};
+
+      if(campo && (String(d[campo] || "") !== String(valor || ""))) return;
+
+      if(!acc[f.dorsal]){
+        acc[f.dorsal] = {
+          dorsal: f.dorsal,
+          piloto: d.piloto || "",
+          copiloto: d.copiloto || "",
+          vehiculo: d.vehiculo || "",
+          grupo: d.grupo || "",
+          clase: d.clase || "",
+          categoria: d.categoria || "",
+          agrupacion: d.agrupacion || "",
+          copa: d.copa || "",
+          totalMs: 0,
+          tramosOK: 0
+        };
+      }
+
+      acc[f.dorsal].totalMs += f.tiempoMs;
+      acc[f.dorsal].tramosOK += 1;
+    });
+  });
+
+  const lista = Object.values(acc).map(x=>({
+    ...x,
+    total: msToDur(x.totalMs)
+  }));
+
+  lista.sort((a,b)=>a.totalMs-b.totalMs);
+  return lista;
+}
+
+window.actualizarFiltrosPDF = function(){
+  const tipo = $("selectorTipoPDF")?.value || "GENERAL";
+  const filaTramo = $("filaFiltroTramo");
+  const filaCampo = $("filaFiltroCampo");
+  const selTramo = $("selectorTramoPDF");
+  const selValor = $("selectorValorPDF");
+
+  if(!filaTramo || !filaCampo || !selTramo || !selValor) return;
+
+  filaTramo.style.display = (tipo === "TRAMO") ? "block" : "none";
+  filaCampo.style.display = (["GRUPO","COPA","AGRUPACION","CLASE","CATEGORIA"].includes(tipo)) ? "block" : "none";
+
+  if(tipo === "TRAMO"){
+    selTramo.innerHTML = "";
+    obtenerListaTCs().forEach(tc=>{
+      selTramo.innerHTML += `<option value="${tc}">${tc}</option>`;
+    });
+  }
+
+  if(["GRUPO","COPA","AGRUPACION","CLASE","CATEGORIA"].includes(tipo)){
+    const mapa = {
+      GRUPO: "grupo",
+      COPA: "copa",
+      AGRUPACION: "agrupacion",
+      CLASE: "clase",
+      CATEGORIA: "categoria"
+    };
+    const campo = mapa[tipo];
+    const valores = [...new Set(Object.values(inscritosCache || {}).map(d => String(d?.[campo] || "").trim()).filter(Boolean))].sort();
+    selValor.innerHTML = "";
+    valores.forEach(v=>{
+      selValor.innerHTML += `<option value="${v}">${v}</option>`;
+    });
+  }
+};
+
+window.exportarClasificacionPDF = function(){
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF("p", "mm", "a4");
+
+    const tipo = $("selectorTipoPDF").value;
+    const titulo = $("pdfTitulo").value.trim() || "Clasificación";
+    const id = $("selectorID_PDF").value || currentID || "";
+    let subTitulo = "";
+    let filas = [];
+    let head = [];
+
+    if(tipo === "GENERAL"){
+      const lista = calcularGeneralFiltrado();
+      head = [["POS","Nº","Piloto","Copiloto","Vehículo","Tramos OK","Total"]];
+      filas = lista.map((f, i)=>[i+1, f.dorsal, f.piloto, f.copiloto, f.vehiculo, f.tramosOK, f.total]);
+      subTitulo = `${id} · General`;
+    }
+    else if(tipo === "TRAMO"){
+      const tc = $("selectorTramoPDF").value;
+      const lista = calcularClasificacionTC(tc);
+      head = [["POS","TC","Nº","Piloto","Copiloto","Vehículo","Salida","Llegada","Tiempo"]];
+      filas = lista.map((f, i)=>[i+1, tc, f.dorsal, f.piloto, f.copiloto, f.vehiculo, f.salida, f.llegada, f.tiempo]);
+      subTitulo = `${id} · ${tc}`;
+    }
+    else{
+      const mapa = {
+        GRUPO: "grupo",
+        COPA: "copa",
+        AGRUPACION: "agrupacion",
+        CLASE: "clase",
+        CATEGORIA: "categoria"
+      };
+      const etiquetas = {
+        GRUPO: "Grupo",
+        COPA: "Copa",
+        AGRUPACION: "Agrupación",
+        CLASE: "Clase",
+        CATEGORIA: "Categoría"
+      };
+      const campo = mapa[tipo];
+      const valor = $("selectorValorPDF").value;
+      const lista = calcularGeneralFiltrado(campo, valor);
+      head = [["POS","Nº","Piloto","Copiloto","Vehículo","Tramos OK","Total"]];
+      filas = lista.map((f, i)=>[i+1, f.dorsal, f.piloto, f.copiloto, f.vehiculo, f.tramosOK, f.total]);
+      subTitulo = `${id} · ${etiquetas[tipo]}: ${valor}`;
+    }
+
+    if(!filas.length){
+      $("estadoPDF").textContent = "No hay datos para exportar en ese filtro.";
+      return;
+    }
+
+    doc.setFontSize(14);
+    doc.text(titulo, 14, 15);
+    doc.setFontSize(10);
+    doc.text(subTitulo, 14, 22);
+
+    doc.autoTable({
+      startY: 28,
+      head: head,
+      body: filas,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [230, 6, 0] },
+      margin: { left: 8, right: 8 }
+    });
+
+    const safe = (titulo || "clasificacion").replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_");
+    doc.save(`${safe}_${tipo}_${id}.pdf`);
+    $("estadoPDF").textContent = "PDF exportado correctamente.";
+  }catch(err){
+    console.error(err);
+    $("estadoPDF").textContent = "Error al generar PDF. Revisa consola.";
+  }
+};
 
 /* ===================== CH (SIN CAMBIOS) ===================== */
 let tramosCHCache = {};
@@ -1390,7 +1494,6 @@ function initCH(){
 }
 setTimeout(initCH, 500);
 
-rellenarSelectImagenes();
 mostrarPanel("tiempos");
 </script>
 

@@ -329,9 +329,15 @@ th,td{
     <input id="pdfTitulo" style="min-width:320px" placeholder="Ej: Rally Villa de Ejemplo">
   </div>
 
-  <div style="margin-bottom:10px;">
-    Subtítulo:
-    <input id="pdfSubtitulo" style="min-width:320px" placeholder="Ej: Clasificación provisional">
+  <div style="margin-bottom:10px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+    <div>
+      Subtítulo:
+      <input id="pdfSubtitulo" style="min-width:320px" placeholder="Ej: Clasificación provisional">
+    </div>
+    <div>
+      Fecha y hora:
+      <input id="pdfFechaHora" style="min-width:220px" placeholder="Ej: 07/03/2026 18:30">
+    </div>
   </div>
 
   <div style="margin-bottom:10px;">
@@ -1494,7 +1500,35 @@ window.actualizarFiltrosPDF = function(){
   rellenarSelectFiltroPDF("selectorCategoriaPDF", valoresCat);
 };
 
-window.exportarClasificacionPDF = function(){
+
+async function urlToDataURL(url){
+  if(!url) return null;
+  try{
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve)=>{
+      const fr = new FileReader();
+      fr.onloadend = ()=>resolve(fr.result);
+      fr.readAsDataURL(blob);
+    });
+  }catch(e){
+    return null;
+  }
+}
+
+function getBanderaPiloto(num){
+  return inscritosCache?.[num]?.bandera_piloto || "";
+}
+function getBanderaCopiloto(num){
+  return inscritosCache?.[num]?.bandera_copiloto || "";
+}
+function getImagenVehiculo(num){
+  return inscritosCache?.[num]?.imagen_vehiculo || "";
+}
+
+
+window.exportarClasificacionPDF = async function(){
   try{
     if(!window.jspdf || !window.jspdf.jsPDF){
       $("estadoPDF").textContent = "No se cargó la librería PDF.";
@@ -1507,6 +1541,7 @@ window.exportarClasificacionPDF = function(){
     const tipo = $("selectorTipoPDF").value;
     const titulo = $("pdfTitulo").value.trim() || "Clasificación";
     const subtitulo = $("pdfSubtitulo").value.trim() || "";
+    const fechaHora = $("pdfFechaHora").value.trim() || "";
     const id = $("selectorID_PDF").value || currentID || "";
     const filtros = obtenerFiltrosPDF();
 
@@ -1516,14 +1551,50 @@ window.exportarClasificacionPDF = function(){
 
     if(tipo === "GENERAL"){
       const lista = calcularGeneralFiltrado(filtros);
-      head = [["POS","Nº","Piloto","Copiloto","Vehículo","Tramos OK","Total"]];
-      filas = lista.map((f, i)=>[i+1, f.dorsal, f.piloto, f.copiloto, f.vehiculo, f.tramosOK, f.total]);
+      head = [["POS","Nº","Participantes","Vehículo","Tramos OK","Total"]];
+      filas = await Promise.all(lista.map(async (f, i)=>{
+        return {
+          pos: i+1,
+          dorsal: f.dorsal,
+          participantes: { 
+            piloto: f.piloto, 
+            copiloto: f.copiloto,
+            banderaPiloto: await urlToDataURL(getBanderaPiloto(f.dorsal)),
+            banderaCopiloto: await urlToDataURL(getBanderaCopiloto(f.dorsal))
+          },
+          vehiculo: {
+            texto: f.vehiculo,
+            logo: await urlToDataURL(getImagenVehiculo(f.dorsal))
+          },
+          tramosOK: f.tramosOK,
+          total: f.total
+        };
+      }));
       cabeceraSecundaria = `${id} · General`;
     } else {
       const tc = $("selectorTramoPDF").value;
       const lista = calcularTramoFiltrado(tc, filtros);
-      head = [["POS","TC","Nº","Piloto","Copiloto","Vehículo","Salida","Llegada","Tiempo"]];
-      filas = lista.map((f, i)=>[i+1, tc, f.dorsal, f.piloto, f.copiloto, f.vehiculo, f.salida, f.llegada, f.tiempo]);
+      head = [["POS","TC","Nº","Participantes","Vehículo","Salida","Llegada","Tiempo"]];
+      filas = await Promise.all(lista.map(async (f, i)=>{
+        return {
+          pos: i+1,
+          tc: tc,
+          dorsal: f.dorsal,
+          participantes: {
+            piloto: f.piloto,
+            copiloto: f.copiloto,
+            banderaPiloto: await urlToDataURL(getBanderaPiloto(f.dorsal)),
+            banderaCopiloto: await urlToDataURL(getBanderaCopiloto(f.dorsal))
+          },
+          vehiculo: {
+            texto: f.vehiculo,
+            logo: await urlToDataURL(getImagenVehiculo(f.dorsal))
+          },
+          salida: f.salida,
+          llegada: f.llegada,
+          tiempo: f.tiempo
+        };
+      }));
       cabeceraSecundaria = `${id} · ${tc}`;
     }
 
@@ -1547,6 +1618,11 @@ window.exportarClasificacionPDF = function(){
       doc.text(subtitulo, 14, 21);
     }
 
+    if(fechaHora){
+      doc.setFontSize(10);
+      doc.text(fechaHora, 150, subtitulo ? 21 : 15, { align: "right" });
+    }
+
     doc.setFontSize(10);
     doc.text(cabeceraSecundaria, 14, subtitulo ? 27 : 22);
 
@@ -1555,13 +1631,61 @@ window.exportarClasificacionPDF = function(){
       doc.text(filtrosTxt.join(" · "), 14, subtitulo ? 33 : 28);
     }
 
+    const startY = filtrosTxt.length ? (subtitulo ? 38 : 33) : (subtitulo ? 32 : 27);
+
+    // Preparamos body textual base
+    const body = filas.map(r=>{
+      if(tipo === "GENERAL"){
+        return [r.pos, r.dorsal, "", "", r.tramosOK, r.total];
+      }else{
+        return [r.pos, r.tc, r.dorsal, "", "", r.salida, r.llegada, r.tiempo];
+      }
+    });
+
     doc.autoTable({
-      startY: filtrosTxt.length ? (subtitulo ? 38 : 33) : (subtitulo ? 32 : 27),
+      startY,
       head: head,
-      body: filas,
-      styles: { fontSize: 8 },
+      body: body,
+      styles: { fontSize: 8, cellPadding: {top: 4, right: 2, bottom: 4, left: 2}, minCellHeight: 12, valign: "middle" },
       headStyles: { fillColor: [230, 6, 0] },
-      margin: { left: 8, right: 8 }
+      margin: { left: 8, right: 8 },
+      columnStyles: (tipo === "GENERAL") ? {2:{cellWidth:58},3:{cellWidth:42}} : {3:{cellWidth:58},4:{cellWidth:42}},
+      didDrawCell: function(data){
+        if(data.section !== "body") return;
+        const row = filas[data.row.index];
+        if(!row) return;
+
+        // Participantes column
+        const colParticipantes = (tipo === "GENERAL") ? 2 : 3;
+        const colVehiculo = (tipo === "GENERAL") ? 3 : 4;
+
+        if(data.column.index === colParticipantes){
+          const x = data.cell.x + 2;
+          const y = data.cell.y + 3;
+          const lineGap = 5;
+
+          if(row.participantes?.banderaPiloto){
+            try{ doc.addImage(row.participantes.banderaPiloto, "PNG", x, y, 5, 3.5); }catch(e){}
+          }
+          doc.text(String(row.participantes?.piloto || ""), x + 7, y + 3);
+
+          if(row.participantes?.banderaCopiloto){
+            try{ doc.addImage(row.participantes.banderaCopiloto, "PNG", x, y + lineGap, 5, 3.5); }catch(e){}
+          }
+          doc.text(String(row.participantes?.copiloto || ""), x + 7, y + lineGap + 3);
+        }
+
+        if(data.column.index === colVehiculo){
+          const x = data.cell.x + 2;
+          const y = data.cell.y + 3;
+          if(row.vehiculo?.logo){
+            try{ doc.addImage(row.vehiculo.logo, "PNG", x, y, 6, 6); }catch(e){}
+            doc.text(String(row.vehiculo?.texto || ""), x + 8, y + 4);
+          }else{
+            doc.text(String(row.vehiculo?.texto || ""), x, y + 4);
+          }
+        }
+      }
     });
 
     const safe = (titulo || "clasificacion")

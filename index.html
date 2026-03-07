@@ -169,6 +169,17 @@ th,td{
   font-weight:bold;
 }
 .export-btn:hover{ border-color:#00aa44; }
+
+.mini-prev{
+  height:16px;
+  vertical-align:middle;
+  margin-left:6px;
+  border:1px solid #333;
+  background:#222;
+}
+.sel-img{
+  min-width:160px;
+}
 </style>
 </head>
 
@@ -213,8 +224,20 @@ th,td{
   Nº <input id="i_num" size="4" oninput="cargarInscritoSiExiste()">
   Equipo <input id="i_equ">
   Piloto <input id="i_pil">
+  <select id="i_flag_pil" class="sel-img" onchange="actualizarPreviewInscrito('pil')"></select>
+  <img id="prev_flag_pil" class="mini-prev" style="display:none">
+
+  <br><br>
+
   Copiloto <input id="i_cop">
+  <select id="i_flag_cop" class="sel-img" onchange="actualizarPreviewInscrito('cop')"></select>
+  <img id="prev_flag_cop" class="mini-prev" style="display:none">
+
+  <br><br>
+
   Vehículo <input id="i_veh">
+  <select id="i_img_veh" class="sel-img" onchange="actualizarPreviewInscrito('veh')"></select>
+  <img id="prev_img_veh" class="mini-prev" style="display:none">
 
   <br><br>
 
@@ -234,8 +257,11 @@ th,td{
         <th>Nº</th>
         <th>Equipo</th>
         <th>Piloto</th>
+        <th>Band. P</th>
         <th>Copiloto</th>
+        <th>Band. C</th>
         <th>Vehículo</th>
+        <th>Img. Veh.</th>
         <th>Grupo</th>
         <th>Clase</th>
         <th>Categoría</th>
@@ -325,6 +351,67 @@ function estadoRally(msg, isErr=false){
 function tiemposInit(){
   return { "_init": true };
 }
+
+/* ================= IMÁGENES FIJAS (EDITA SOLO AQUÍ SI CAMBIAN RUTAS) ================= */
+const BANDERAS = [
+  { nombre:"-- Sin bandera --", archivo:"" },
+  { nombre:"España", archivo:"img/banderas/es.png" },
+  { nombre:"Francia", archivo:"img/banderas/fr.png" },
+  { nombre:"Portugal", archivo:"img/banderas/pt.png" },
+  { nombre:"Italia", archivo:"img/banderas/it.png" },
+  { nombre:"Alemania", archivo:"img/banderas/de.png" },
+  { nombre:"Reino Unido", archivo:"img/banderas/gb.png" }
+];
+
+const VEHICULOS_IMG = [
+  { nombre:"-- Sin imagen --", archivo:"" },
+  { nombre:"Citroën", archivo:"img/vehiculos/citroen.png" },
+  { nombre:"Ford", archivo:"img/vehiculos/ford.png" },
+  { nombre:"Hyundai", archivo:"img/vehiculos/hyundai.png" },
+  { nombre:"Peugeot", archivo:"img/vehiculos/peugeot.png" },
+  { nombre:"Renault", archivo:"img/vehiculos/renault.png" },
+  { nombre:"Skoda", archivo:"img/vehiculos/skoda.png" },
+  { nombre:"Toyota", archivo:"img/vehiculos/toyota.png" }
+];
+
+function rellenarSelectImagenes(){
+  const selPil = $("i_flag_pil");
+  const selCop = $("i_flag_cop");
+  const selVeh = $("i_img_veh");
+  if(!selPil || !selCop || !selVeh) return;
+
+  if(selPil.options.length === 0){
+    BANDERAS.forEach(item=>{
+      selPil.innerHTML += `<option value="${item.archivo}">${item.nombre}</option>`;
+      selCop.innerHTML += `<option value="${item.archivo}">${item.nombre}</option>`;
+    });
+    VEHICULOS_IMG.forEach(item=>{
+      selVeh.innerHTML += `<option value="${item.archivo}">${item.nombre}</option>`;
+    });
+  }
+}
+
+window.actualizarPreviewInscrito = function(tipo){
+  let selectId = "";
+  let imgId = "";
+
+  if(tipo === "pil"){ selectId = "i_flag_pil"; imgId = "prev_flag_pil"; }
+  if(tipo === "cop"){ selectId = "i_flag_cop"; imgId = "prev_flag_cop"; }
+  if(tipo === "veh"){ selectId = "i_img_veh"; imgId = "prev_img_veh"; }
+
+  const ruta = $(selectId)?.value || "";
+  const img = $(imgId);
+  if(!img) return;
+
+  if(!ruta){
+    img.style.display = "none";
+    img.src = "";
+    return;
+  }
+
+  img.src = ruta;
+  img.style.display = "inline-block";
+};
 
 /* ================= VALIDACIONES ================= */
 function esHoraValida(h){
@@ -452,6 +539,7 @@ onValue(ref(db,"IDs"), snap=>{
     engancharLecturasDeID(currentID);
   }
 
+  rellenarSelectImagenes();
   pintarCH();
 });
 
@@ -1127,14 +1215,21 @@ window.cargarInscritoSiExiste = function(){
 
   $("i_equ").value = d.equipo || "";
   $("i_pil").value = d.piloto || "";
+  $("i_flag_pil").value = d.bandera_piloto || "";
   $("i_cop").value = d.copiloto || "";
+  $("i_flag_cop").value = d.bandera_copiloto || "";
   $("i_veh").value = d.vehiculo || "";
+  $("i_img_veh").value = d.imagen_vehiculo || "";
 
   $("i_gru").value = d.grupo || "";
   $("i_cla").value = d.clase || "";
   $("i_cat").value = d.categoria || "";
   $("i_agr").value = d.agrupacion || "";
   $("i_copa").value = d.copa || "";
+
+  actualizarPreviewInscrito("pil");
+  actualizarPreviewInscrito("cop");
+  actualizarPreviewInscrito("veh");
 
   $("estadoInscritos").textContent = "Dorsal cargado para edición";
 
@@ -1148,8 +1243,11 @@ window.guardarInscrito = async function(){
   const data = {
     equipo: $("i_equ").value,
     piloto: $("i_pil").value,
+    bandera_piloto: $("i_flag_pil").value,
     copiloto: $("i_cop").value,
+    bandera_copiloto: $("i_flag_cop").value,
     vehiculo: $("i_veh").value,
+    imagen_vehiculo: $("i_img_veh").value,
     grupo: $("i_gru").value,
     clase: $("i_cla").value,
     categoria: $("i_cat").value,
@@ -1160,6 +1258,12 @@ window.guardarInscrito = async function(){
   await set(ref(db, `IDs/${id}/inscritos/${num}`), data);
   $("estadoInscritos").textContent = "✅ Guardado";
   ["i_num","i_equ","i_pil","i_cop","i_veh","i_gru","i_cla","i_cat","i_agr","i_copa"].forEach(x=>$(x).value="");
+  $("i_flag_pil").value = "";
+  $("i_flag_cop").value = "";
+  $("i_img_veh").value = "";
+  actualizarPreviewInscrito("pil");
+  actualizarPreviewInscrito("cop");
+  actualizarPreviewInscrito("veh");
 };
 
 window.filtrarInscritos = function(){ pintarTablaInscritos(); };
@@ -1179,8 +1283,11 @@ function pintarTablaInscritos(){
       <td>${num}</td>
       <td>${d.equipo||""}</td>
       <td>${d.piloto||""}</td>
+      <td>${d.bandera_piloto ? '<img src="'+d.bandera_piloto+'" class="mini-prev">' : ""}</td>
       <td>${d.copiloto||""}</td>
+      <td>${d.bandera_copiloto ? '<img src="'+d.bandera_copiloto+'" class="mini-prev">' : ""}</td>
       <td>${d.vehiculo||""}</td>
+      <td>${d.imagen_vehiculo ? '<img src="'+d.imagen_vehiculo+'" class="mini-prev">' : ""}</td>
       <td>${d.grupo||""}</td>
       <td>${d.clase||""}</td>
       <td>${d.categoria||""}</td>
@@ -1283,6 +1390,7 @@ function initCH(){
 }
 setTimeout(initCH, 500);
 
+rellenarSelectImagenes();
 mostrarPanel("tiempos");
 </script>
 

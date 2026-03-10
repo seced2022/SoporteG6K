@@ -219,6 +219,7 @@ th,td{
 
   Buscar dorsal:
   <input id="buscarDorsal" oninput="filtrarInscritos()">
+  <input type="hidden" id="i_original_key">
 
   <br><br>
 
@@ -258,6 +259,17 @@ th,td{
   <br><br>
   <button class="btn" onclick="guardarInscrito()">Guardar</button>
   <span id="estadoInscritos" class="small"></span>
+
+  <br><br>
+
+  <div style="border:1px solid #333; padding:10px; border-radius:8px; background:#151515;">
+    <strong>📄 Importar inscritos desde PDF</strong><br><br>
+    <input type="file" id="pdfInputInscritos" accept="application/pdf">
+    <button class="btn" onclick="leerPDFInscritos()">Leer inscritos</button>
+    <button class="btn" onclick="importarInscritosPDF()">Importar inscritos</button>
+    <div id="estadoPDFInscritos" class="small" style="margin-top:8px;"></div>
+    <div id="previewPDFInscritos" style="margin-top:10px;"></div>
+  </div>
 
   <table id="tablaInscritos">
     <thead>
@@ -395,11 +407,12 @@ th,td{
   <div id="estadoPDF" class="small" style="margin-top:8px;"></div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, update, onValue, get, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, update, onValue, get, push, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
@@ -949,6 +962,233 @@ function dorsalClasificable(num){
   return inscritosCache?.[num]?.clasificar === true;
 }
 
+/* ================= IMPORTAR INSCRITOS DESDE PDF ================= */
+let inscritosPDFImport = [];
+
+function limpiarTextoPDF(s){
+  return String(s || "").replace(/\s+/g, " ").trim();
+}
+
+function extraerGrupoDesdeCCGrupo(s){
+  const txt = limpiarTextoPDF(s);
+  if(!txt) return "";
+  const m = txt.match(/^\d+\s+(.*)$/);
+  return m ? limpiarTextoPDF(m[1]) : txt;
+}
+
+function agruparItemsPorFila(items, tolerancia = 3){
+  const filas = [];
+  const ordenados = [...items]
+    .filter(it => limpiarTextoPDF(it.str))
+    .sort((a,b)=>{
+      const ay = a.transform?.[5] || 0;
+      const by = b.transform?.[5] || 0;
+      if(Math.abs(by - ay) > tolerancia) return by - ay;
+      const ax = a.transform?.[4] || 0;
+      const bx = b.transform?.[4] || 0;
+      return ax - bx;
+    });
+
+  ordenados.forEach(it=>{
+    const x = it.transform?.[4] || 0;
+    const y = it.transform?.[5] || 0;
+    let fila = filas.find(f => Math.abs(f.y - y) <= tolerancia);
+    if(!fila){
+      fila = { y, items: [] };
+      filas.push(fila);
+    }
+    fila.items.push({ x, text: limpiarTextoPDF(it.str) });
+  });
+
+  filas.forEach(f=>f.items.sort((a,b)=>a.x-b.x));
+  filas.sort((a,b)=>b.y-a.y);
+  return filas;
+}
+
+function parsearFilaInscritoPDF(fila){
+  const celdas = {
+    dorsal: "",
+    equipo: "",
+    piloto: "",
+    copiloto: "",
+    vehiculo: "",
+    ccgrupo: "",
+    agrupacion: "",
+    copa: ""
+  };
+
+  fila.items.forEach(it=>{
+    const x = it.x;
+    const t = it.text;
+    if(!t) return;
+
+    if(x < 45) celdas.dorsal += " " + t;
+    else if(x < 210) celdas.equipo += " " + t;
+    else if(x < 415) celdas.piloto += " " + t;
+    else if(x < 625) celdas.copiloto += " " + t;
+    else if(x < 808) celdas.vehiculo += " " + t;
+    else if(x < 898) celdas.ccgrupo += " " + t;
+    else if(x < 940) celdas.agrupacion += " " + t;
+    else celdas.copa += " " + t;
+  });
+
+  const dorsalNum = (limpiarTextoPDF(celdas.dorsal).match(/\d+/) || ["0"])[0];
+  const equipo = limpiarTextoPDF(celdas.equipo);
+  const piloto = limpiarTextoPDF(celdas.piloto);
+  const copiloto = limpiarTextoPDF(celdas.copiloto);
+  const vehiculo = limpiarTextoPDF(celdas.vehiculo);
+  const grupo = extraerGrupoDesdeCCGrupo(celdas.ccgrupo);
+  const agrupacion = limpiarTextoPDF(celdas.agrupacion);
+  const copa = limpiarTextoPDF(celdas.copa);
+
+  if(!piloto && !copiloto && !vehiculo) return null;
+
+  return {
+    dorsal: dorsalNum || "0",
+    equipo,
+    piloto,
+    copiloto,
+    vehiculo,
+    grupo,
+    clase: "",
+    categoria: "",
+    agrupacion,
+    copa,
+    clasificar: true
+  };
+}
+
+function mostrarPreviewPDFInscritos(){
+  const div = $("previewPDFInscritos");
+  const estado = $("estadoPDFInscritos");
+  if(!div || !estado) return;
+
+  if(!inscritosPDFImport.length){
+    estado.textContent = "No se detectaron inscritos en el PDF.";
+    div.innerHTML = "";
+    return;
+  }
+
+  let htmlPrev = '<table><thead><tr><th>Nº</th><th>Equipo</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th><th>Grupo</th><th>Agrupación</th><th>Copa</th></tr></thead><tbody>';
+  inscritosPDFImport.forEach(r=>{
+    htmlPrev += `<tr>
+      <td>${r.dorsal}</td>
+      <td>${r.equipo || ""}</td>
+      <td>${r.piloto || ""}</td>
+      <td>${r.copiloto || ""}</td>
+      <td>${r.vehiculo || ""}</td>
+      <td>${r.grupo || ""}</td>
+      <td>${r.agrupacion || ""}</td>
+      <td>${r.copa || ""}</td>
+    </tr>`;
+  });
+  htmlPrev += '</tbody></table>';
+  div.innerHTML = htmlPrev;
+  estado.textContent = `Se detectaron ${inscritosPDFImport.length} inscritos. Revísalos antes de importar.`;
+}
+
+window.leerPDFInscritos = async function(){
+  try{
+    const input = $("pdfInputInscritos");
+    if(!input?.files?.length){
+      alert("Selecciona un PDF");
+      return;
+    }
+
+    if(!window.pdfjsLib){
+      $("estadoPDFInscritos").textContent = "No se cargó la librería PDF.";
+      return;
+    }
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+    const file = input.files[0];
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+
+    inscritosPDFImport = [];
+
+    for(let p=1; p<=pdf.numPages; p++){
+      const page = await pdf.getPage(p);
+      const text = await page.getTextContent();
+      const filas = agruparItemsPorFila(text.items, 3);
+
+      filas.forEach(fila=>{
+        const textoFila = fila.items.map(i=>i.text).join(" ").toUpperCase();
+
+        if(textoFila.includes("ESCUDERÍA") && textoFila.includes("PILOTO") && textoFila.includes("COPILOTO")) return;
+        if(textoFila.includes("NÚM") || textoFila.includes("NUM")) return;
+        if(textoFila.includes("VEHÍCULO") && textoFila.includes("GRUPO")) return;
+        if(textoFila.includes("LISTA OFICIAL") || textoFila.includes("PUBLICADA")) return;
+
+        const registro = parsearFilaInscritoPDF(fila);
+        if(registro) inscritosPDFImport.push(registro);
+      });
+    }
+
+    mostrarPreviewPDFInscritos();
+  }catch(err){
+    console.error(err);
+    $("estadoPDFInscritos").textContent = "Error leyendo el PDF. Revisa la consola.";
+  }
+};
+
+window.importarInscritosPDF = async function(){
+  try{
+    const id = $("idInscritos").value;
+    if(!id){
+      alert("Selecciona primero un ID en Inscritos");
+      return;
+    }
+    if(!inscritosPDFImport.length){
+      alert("Primero lee un PDF y revisa la vista previa");
+      return;
+    }
+
+    const usadas = new Set(Object.keys(inscritosCache || {}));
+
+    function claveDisponible(base){
+      let clave = String(base || "0");
+      if(!usadas.has(clave)){
+        usadas.add(clave);
+        return clave;
+      }
+      let n = 2;
+      while(usadas.has(`${clave}_${n}`)) n++;
+      const finalKey = `${clave}_${n}`;
+      usadas.add(finalKey);
+      return finalKey;
+    }
+
+    for(const r of inscritosPDFImport){
+      const clave = claveDisponible(r.dorsal || "0");
+      await set(ref(db, `IDs/${id}/inscritos/${clave}`), {
+        equipo: r.equipo || "",
+        piloto: r.piloto || "",
+        bandera_piloto: "",
+        copiloto: r.copiloto || "",
+        bandera_copiloto: "",
+        vehiculo: r.vehiculo || "",
+        imagen_vehiculo: "",
+        grupo: r.grupo || "",
+        clase: r.clase || "",
+        categoria: r.categoria || "",
+        agrupacion: r.agrupacion || "",
+        copa: r.copa || "",
+        clasificar: true
+      });
+    }
+
+    $("estadoPDFInscritos").textContent = `Importados ${inscritosPDFImport.length} inscritos.`;
+    inscritosPDFImport = [];
+    $("previewPDFInscritos").innerHTML = "";
+    $("pdfInputInscritos").value = "";
+  }catch(err){
+    console.error(err);
+    $("estadoPDFInscritos").textContent = "Error importando inscritos.";
+  }
+};
+
 /* ================= TIEMPOS: cálculo de clasificación por TC (NUEVO) =================
    - Devuelve SOLO dorsales numéricos (para exportar limpio)
    - Calcula diff si hay S y LL; si falta, marca EN CURSO (ms = null)
@@ -1325,6 +1565,8 @@ window.cargarInscritoSiExiste = function(){
   const d = inscritosCache[dorsal];
   if(!d) return;
 
+  $("i_original_key").value = dorsal;
+
   $("i_equ").value = d.equipo || "";
   $("i_pil").value = d.piloto || "";
   $("i_flag_pil").value = d.bandera_piloto || "";
@@ -1351,6 +1593,7 @@ window.cargarInscritoSiExiste = function(){
 window.guardarInscrito = async function(){
   const id = $("idInscritos").value;
   const num = $("i_num").value.trim();
+  const originalKey = $("i_original_key").value.trim();
   if(!id || !num){ alert("Falta ID o Nº"); return; }
 
   const data = {
@@ -1370,12 +1613,16 @@ window.guardarInscrito = async function(){
   };
 
   await set(ref(db, `IDs/${id}/inscritos/${num}`), data);
+  if(originalKey && originalKey !== num){
+    await remove(ref(db, `IDs/${id}/inscritos/${originalKey}`));
+  }
   $("estadoInscritos").textContent = "✅ Guardado";
   ["i_num","i_equ","i_pil","i_cop","i_veh","i_gru","i_cla","i_cat","i_agr","i_copa"].forEach(x=>$(x).value="");
   $("i_flag_pil").value = "";
   $("i_flag_cop").value = "";
   $("i_img_veh").value = "";
   $("i_clasificar").checked = false;
+  $("i_original_key").value = "";
   actualizarPreviewInscrito("pil");
   actualizarPreviewInscrito("cop");
   actualizarPreviewInscrito("veh");

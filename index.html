@@ -1605,6 +1605,126 @@ window.editarInscrito = function(clave){
 };
 
 
+
+function nombreBanderaDesdeRuta(ruta){
+  const item = (BANDERAS || []).find(x => x.archivo === (ruta || ""));
+  return item ? item.nombre : "";
+}
+
+function nombreVehiculoDesdeRuta(ruta){
+  const item = (VEHICULOS_IMG || []).find(x => x.archivo === (ruta || ""));
+  return item ? item.nombre : "";
+}
+
+async function actualizarCampoInscritoDirecto(claveActual, campo, valorNuevo){
+  const id = $("idInscritos").value;
+  if(!id || !claveActual) return;
+
+  const actual = inscritosCache?.[claveActual] || {};
+
+  if(campo === "dorsal"){
+    const nuevaClave = String(valorNuevo || "").trim();
+    if(!nuevaClave){
+      alert("El dorsal no puede estar vacío");
+      return;
+    }
+    const data = { ...actual };
+    await set(ref(db, `IDs/${id}/inscritos/${nuevaClave}`), data);
+    if(nuevaClave !== claveActual){
+      await remove(ref(db, `IDs/${id}/inscritos/${claveActual}`));
+    }
+    $("estadoInscritos").textContent = `✅ Dorsal actualizado a ${nuevaClave}`;
+    return;
+  }
+
+  if(campo === "clasificar"){
+    await update(ref(db, `IDs/${id}/inscritos/${claveActual}`), { clasificar: !!valorNuevo });
+    $("estadoInscritos").textContent = "✅ Clasificación actualizada";
+    return;
+  }
+
+  await update(ref(db, `IDs/${id}/inscritos/${claveActual}`), { [campo]: valorNuevo });
+  $("estadoInscritos").textContent = `✅ ${campo} actualizado`;
+}
+
+window.editarCeldaInscrito = async function(claveActual, campo){
+  const d = inscritosCache?.[claveActual] || {};
+
+  if(campo === "dorsal"){
+    const nuevo = prompt("Nuevo Nº / dorsal:", claveActual);
+    if(nuevo === null) return;
+    await actualizarCampoInscritoDirecto(claveActual, "dorsal", nuevo.trim());
+    return;
+  }
+
+  if(campo === "clasificar"){
+    const activar = !Boolean(d.clasificar);
+    const ok = confirm(`${activar ? "Incluir" : "Quitar"} este inscrito de clasificaciones?`);
+    if(!ok) return;
+    await actualizarCampoInscritoDirecto(claveActual, "clasificar", activar);
+    return;
+  }
+
+  if(campo === "bandera_piloto" || campo === "bandera_copiloto"){
+    const actualRuta = d[campo] || "";
+    const actualNombre = nombreBanderaDesdeRuta(actualRuta) || "";
+    const opciones = BANDERAS.map(x => x.nombre).join(", ");
+    const elegido = prompt(`Elige bandera (${opciones})\nEscribe el nombre exacto o deja vacío para quitar.`, actualNombre);
+    if(elegido === null) return;
+    const limpio = elegido.trim();
+    const item = (BANDERAS || []).find(x => x.nombre.toLowerCase() === limpio.toLowerCase());
+    const ruta = limpio === "" ? "" : (item ? item.archivo : actualRuta);
+    if(limpio !== "" && !item){
+      alert("Bandera no encontrada en la lista.");
+      return;
+    }
+    await actualizarCampoInscritoDirecto(claveActual, campo, ruta);
+    return;
+  }
+
+  if(campo === "imagen_vehiculo"){
+    const actualRuta = d[campo] || "";
+    const actualNombre = nombreVehiculoDesdeRuta(actualRuta) || "";
+    const opciones = VEHICULOS_IMG.map(x => x.nombre).join(", ");
+    const elegido = prompt(`Elige imagen de vehículo (${opciones})\nEscribe el nombre exacto o deja vacío para quitar.`, actualNombre);
+    if(elegido === null) return;
+    const limpio = elegido.trim();
+    const item = (VEHICULOS_IMG || []).find(x => x.nombre.toLowerCase() === limpio.toLowerCase());
+    const ruta = limpio === "" ? "" : (item ? item.archivo : actualRuta);
+    if(limpio !== "" && !item){
+      alert("Imagen de vehículo no encontrada en la lista.");
+      return;
+    }
+    await actualizarCampoInscritoDirecto(claveActual, campo, ruta);
+    return;
+  }
+
+  const etiquetas = {
+    equipo: "Equipo",
+    piloto: "Piloto",
+    copiloto: "Copiloto",
+    vehiculo: "Vehículo",
+    grupo: "Grupo",
+    clase: "Clase",
+    categoria: "Categoría",
+    agrupacion: "Agrupación",
+    copa: "Copa"
+  };
+
+  const actual = d[campo] || "";
+  const nuevo = prompt(`Editar ${etiquetas[campo] || campo}:`, actual);
+  if(nuevo === null) return;
+
+  await actualizarCampoInscritoDirecto(claveActual, campo, nuevo.trim());
+};
+
+function celdaEditableInscrito(claveActual, campo, contenidoHtml){
+  return `<td onclick="event.stopPropagation(); editarCeldaInscrito('${claveActual}','${campo}')"
+              style="cursor:pointer"
+              title="Click para editar">${contenidoHtml}</td>`;
+}
+
+
 window.guardarInscrito = async function(){
   const id = $("idInscritos").value;
   const num = $("i_num").value.trim();
@@ -1657,24 +1777,22 @@ function pintarTablaInscritos(){
 
     const tr = document.createElement("tr");
     tr.style.cursor = "pointer";
-    tr.title = "Click para cargar y editar este inscrito";
-    tr.onclick = ()=>editarInscrito(num);
-    tr.innerHTML = `
-      <td>${num}</td>
-      <td>${d.equipo||""}</td>
-      <td>${d.piloto||""}</td>
-      <td>${d.bandera_piloto ? '<img src="'+d.bandera_piloto+'" class="mini-prev">' : ""}</td>
-      <td>${d.copiloto||""}</td>
-      <td>${d.bandera_copiloto ? '<img src="'+d.bandera_copiloto+'" class="mini-prev">' : ""}</td>
-      <td>${d.vehiculo||""}</td>
-      <td>${d.imagen_vehiculo ? '<img src="'+d.imagen_vehiculo+'" class="mini-prev">' : ""}</td>
-      <td>${d.grupo||""}</td>
-      <td>${d.clase||""}</td>
-      <td>${d.categoria||""}</td>
-      <td>${d.agrupacion||""}</td>
-      <td>${d.copa||""}</td>
-      <td>${d.clasificar ? "✅" : ""}</td>
-    `;
+    tr.title = "Click en una casilla para editar directamente";
+    tr.innerHTML =
+      celdaEditableInscrito(num, "dorsal", num) +
+      celdaEditableInscrito(num, "equipo", d.equipo||"") +
+      celdaEditableInscrito(num, "piloto", d.piloto||"") +
+      celdaEditableInscrito(num, "bandera_piloto", d.bandera_piloto ? '<img src="'+d.bandera_piloto+'" class="mini-prev">' : "") +
+      celdaEditableInscrito(num, "copiloto", d.copiloto||"") +
+      celdaEditableInscrito(num, "bandera_copiloto", d.bandera_copiloto ? '<img src="'+d.bandera_copiloto+'" class="mini-prev">' : "") +
+      celdaEditableInscrito(num, "vehiculo", d.vehiculo||"") +
+      celdaEditableInscrito(num, "imagen_vehiculo", d.imagen_vehiculo ? '<img src="'+d.imagen_vehiculo+'" class="mini-prev">' : "") +
+      celdaEditableInscrito(num, "grupo", d.grupo||"") +
+      celdaEditableInscrito(num, "clase", d.clase||"") +
+      celdaEditableInscrito(num, "categoria", d.categoria||"") +
+      celdaEditableInscrito(num, "agrupacion", d.agrupacion||"") +
+      celdaEditableInscrito(num, "copa", d.copa||"") +
+      celdaEditableInscrito(num, "clasificar", d.clasificar ? "✅" : "");
     tbody.appendChild(tr);
   });
 }

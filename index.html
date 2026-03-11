@@ -409,38 +409,41 @@ th,td{
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js">
+
 function mostrarVistaPreviaClasificacion(){
   const cont = document.getElementById("vistaPreviaClasificacion");
   if(!cont) return;
 
-  const filas = [];
+  let htmlPrev = "<h4>Vista previa clasificación (igual al PDF)</h4>";
+  htmlPrev += "<table style='width:100%;border-collapse:collapse'>";
+  htmlPrev += "<tr><th>Nº</th><th>Participantes</th><th>Vehículo</th></tr>";
+
   Object.keys(inscritosCache || {}).forEach(num=>{
     const d = inscritosCache[num];
     if(!d || !d.clasificar) return;
 
-    filas.push({
-      dorsal:num,
-      piloto:d.piloto||"",
-      copiloto:d.copiloto||"",
-      vehiculo:d.vehiculo||""
-    });
+    const piloto = d.piloto || "";
+    const copiloto = d.copiloto || "";
+    const vehiculo = d.vehiculo || "";
+
+    const banderaPil = d.bandera_piloto ? `<img src="${d.bandera_piloto}" style="height:12px;margin-right:4px">` : "";
+    const banderaCop = d.bandera_copiloto ? `<img src="${d.bandera_copiloto}" style="height:12px;margin-right:4px">` : "";
+    const logoVeh = d.imagen_vehiculo ? `<img src="${d.imagen_vehiculo}" style="height:16px;margin-right:6px">` : "";
+
+    htmlPrev += `
+      <tr>
+        <td>${num}</td>
+        <td style="text-align:left">
+          <div>${banderaPil}${piloto}</div>
+          <div>${banderaCop}${copiloto}</div>
+        </td>
+        <td style="text-align:left">${logoVeh}${vehiculo}</td>
+      </tr>
+    `;
   });
 
-  let html = "<h4>Vista previa clasificación</h4>";
-  html += "<table style='width:100%;border-collapse:collapse'>";
-  html += "<tr><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th></tr>";
-
-  filas.forEach(f=>{
-    html += `<tr>
-      <td>${f.dorsal}</td>
-      <td>${f.piloto}</td>
-      <td>${f.copiloto}</td>
-      <td>${f.vehiculo}</td>
-    </tr>`;
-  });
-
-  html += "</table>";
-  cont.innerHTML = html;
+  htmlPrev += "</table>";
+  cont.innerHTML = htmlPrev;
 }
 
 </script>

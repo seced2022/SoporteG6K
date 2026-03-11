@@ -1154,10 +1154,15 @@ window.importarInscritosPDF = async function(){
         return clave;
       }
       let n = 2;
-      while(usadas.has(`${clave}_${n}`)) n++;
-      const finalKey = `${clave}_${n}`;
-      usadas.add(finalKey);
-      return finalKey;
+      while(true){
+        if(n === 13){ n++; continue; }   // en rally evitamos 13
+        const candidata = `${clave}_${n}`;
+        if(!usadas.has(candidata)){
+          usadas.add(candidata);
+          return candidata;
+        }
+        n++;
+      }
     }
 
     for(const r of inscritosPDFImport){
@@ -1188,6 +1193,7 @@ window.importarInscritosPDF = async function(){
     $("estadoPDFInscritos").textContent = "Error importando inscritos.";
   }
 };
+
 
 /* ================= TIEMPOS: cálculo de clasificación por TC (NUEVO) =================
    - Devuelve SOLO dorsales numéricos (para exportar limpio)
@@ -1590,6 +1596,13 @@ window.cargarInscritoSiExiste = function(){
 
 };
 
+window.editarInscrito = function(clave){
+  $("i_num").value = clave;
+  cargarInscritoSiExiste();
+  $("estadoInscritos").textContent = "Editando inscrito " + clave;
+};
+
+
 window.guardarInscrito = async function(){
   const id = $("idInscritos").value;
   const num = $("i_num").value.trim();
@@ -1641,6 +1654,9 @@ function pintarTablaInscritos(){
     if(filtro && !texto.includes(filtro)) return;
 
     const tr = document.createElement("tr");
+    tr.style.cursor = "pointer";
+    tr.title = "Click para cargar y editar este inscrito";
+    tr.onclick = ()=>editarInscrito(num);
     tr.innerHTML = `
       <td>${num}</td>
       <td>${d.equipo||""}</td>
@@ -2059,6 +2075,9 @@ function pintarCH(){
 
   filas.forEach(f=>{
     const tr = document.createElement("tr");
+    tr.style.cursor = "pointer";
+    tr.title = "Click para cargar y editar este inscrito";
+    tr.onclick = ()=>editarInscrito(num);
     tr.innerHTML = `
       <td>${f.ch}</td>
       <td>${f.dorsal}</td>

@@ -342,6 +342,7 @@ th,td{
 
 <!-- ================= CLASIFICACIONES ================= -->
 <div id="clasificaciones" class="panel">
+<div id="vistaPreviaClasificacion" style="margin-top:15px;"></div>
   <h3>Clasificaciones PDF</h3>
 
   <div style="margin-bottom:10px;">
@@ -407,9 +408,114 @@ th,td{
   <div id="estadoPDF" class="small" style="margin-top:8px;"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js">
+function mostrarVistaPreviaClasificacion(){
+  const cont = document.getElementById("vistaPreviaClasificacion");
+  if(!cont) return;
+
+  const filas = [];
+  Object.keys(inscritosCache || {}).forEach(num=>{
+    const d = inscritosCache[num];
+    if(!d || !d.clasificar) return;
+
+    filas.push({
+      dorsal:num,
+      piloto:d.piloto||"",
+      copiloto:d.copiloto||"",
+      vehiculo:d.vehiculo||""
+    });
+  });
+
+  let html = "<h4>Vista previa clasificación</h4>";
+  html += "<table style='width:100%;border-collapse:collapse'>";
+  html += "<tr><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th></tr>";
+
+  filas.forEach(f=>{
+    html += `<tr>
+      <td>${f.dorsal}</td>
+      <td>${f.piloto}</td>
+      <td>${f.copiloto}</td>
+      <td>${f.vehiculo}</td>
+    </tr>`;
+  });
+
+  html += "</table>";
+  cont.innerHTML = html;
+}
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+function mostrarVistaPreviaClasificacion(){
+  const cont = document.getElementById("vistaPreviaClasificacion");
+  if(!cont) return;
+
+  const filas = [];
+  Object.keys(inscritosCache || {}).forEach(num=>{
+    const d = inscritosCache[num];
+    if(!d || !d.clasificar) return;
+
+    filas.push({
+      dorsal:num,
+      piloto:d.piloto||"",
+      copiloto:d.copiloto||"",
+      vehiculo:d.vehiculo||""
+    });
+  });
+
+  let html = "<h4>Vista previa clasificación</h4>";
+  html += "<table style='width:100%;border-collapse:collapse'>";
+  html += "<tr><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th></tr>";
+
+  filas.forEach(f=>{
+    html += `<tr>
+      <td>${f.dorsal}</td>
+      <td>${f.piloto}</td>
+      <td>${f.copiloto}</td>
+      <td>${f.vehiculo}</td>
+    </tr>`;
+  });
+
+  html += "</table>";
+  cont.innerHTML = html;
+}
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js">
+function mostrarVistaPreviaClasificacion(){
+  const cont = document.getElementById("vistaPreviaClasificacion");
+  if(!cont) return;
+
+  const filas = [];
+  Object.keys(inscritosCache || {}).forEach(num=>{
+    const d = inscritosCache[num];
+    if(!d || !d.clasificar) return;
+
+    filas.push({
+      dorsal:num,
+      piloto:d.piloto||"",
+      copiloto:d.copiloto||"",
+      vehiculo:d.vehiculo||""
+    });
+  });
+
+  let html = "<h4>Vista previa clasificación</h4>";
+  html += "<table style='width:100%;border-collapse:collapse'>";
+  html += "<tr><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th></tr>";
+
+  filas.forEach(f=>{
+    html += `<tr>
+      <td>${f.dorsal}</td>
+      <td>${f.piloto}</td>
+      <td>${f.copiloto}</td>
+      <td>${f.vehiculo}</td>
+    </tr>`;
+  });
+
+  html += "</table>";
+  cont.innerHTML = html;
+}
+
+</script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, set, update, onValue, get, push, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -2217,6 +2323,41 @@ setTimeout(initCH, 500);
 
 rellenarSelectImagenes();
 mostrarPanel("tiempos");
+
+function mostrarVistaPreviaClasificacion(){
+  const cont = document.getElementById("vistaPreviaClasificacion");
+  if(!cont) return;
+
+  const filas = [];
+  Object.keys(inscritosCache || {}).forEach(num=>{
+    const d = inscritosCache[num];
+    if(!d || !d.clasificar) return;
+
+    filas.push({
+      dorsal:num,
+      piloto:d.piloto||"",
+      copiloto:d.copiloto||"",
+      vehiculo:d.vehiculo||""
+    });
+  });
+
+  let html = "<h4>Vista previa clasificación</h4>";
+  html += "<table style='width:100%;border-collapse:collapse'>";
+  html += "<tr><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th></tr>";
+
+  filas.forEach(f=>{
+    html += `<tr>
+      <td>${f.dorsal}</td>
+      <td>${f.piloto}</td>
+      <td>${f.copiloto}</td>
+      <td>${f.vehiculo}</td>
+    </tr>`;
+  });
+
+  html += "</table>";
+  cont.innerHTML = html;
+}
+
 </script>
 
 </body>

@@ -499,10 +499,9 @@ function construirPanelCH(){
     const ms = parseHoraToMs(hora);
     if(!porDorsal[dorsal] || ms == null || porDorsal[dorsal].horaMs == null || ms > porDorsal[dorsal].horaMs){
       porDorsal[dorsal] = {
-        tipo: 'ch',
         dorsal,
         ch: currentCH,
-        hora,
+        pasoCH: hora,
         horaMs: ms
       };
     }
@@ -513,6 +512,42 @@ function construirPanelCH(){
     const bm = b.horaMs == null ? -1 : b.horaMs;
     if(am !== bm) return bm - am;
     return (+a.dorsal) - (+b.dorsal);
+  });
+}
+
+function construirPanelVisible(){
+  const listaTC = construirPanelDorsales();
+  if(!currentCH || currentCH === 'TODOS'){
+    return listaTC.map(item => ({
+      ...item,
+      estado: item.llegada ? 'done' : 'pending'
+    }));
+  }
+
+  const mapaTC = {};
+  listaTC.forEach(item => {
+    mapaTC[item.dorsal] = item;
+  });
+
+  return construirPanelCH().map(itemCH => {
+    const itemTC = mapaTC[itemCH.dorsal] || null;
+    const salida = itemTC?.salida || '';
+    const llegada = itemTC?.llegada || '';
+    let estado = 'ch';
+    if(llegada) estado = 'done';
+    else if(salida) estado = 'pending';
+
+    return {
+      dorsal: itemCH.dorsal,
+      ch: itemCH.ch,
+      pasoCH: itemCH.pasoCH || '',
+      horaMs: itemCH.horaMs ?? null,
+      salida,
+      salidaMs: itemTC?.salidaMs ?? null,
+      llegada,
+      llegadaMs: itemTC?.llegadaMs ?? null,
+      estado
+    };
   });
 }
 
@@ -537,11 +572,11 @@ function pintar(){
     return;
   }
 
-  const listaTC = construirPanelDorsales();
-  const listaCH = construirPanelCH();
-  const conLlegada = listaTC.filter(x => !!x.llegada).length;
+  const lista = construirPanelVisible();
+  const conSalida = lista.filter(x => !!x.salida).length;
+  const conLlegada = lista.filter(x => !!x.llegada).length;
 
-  $('statSalida').textContent = String(listaTC.length);
+  $('statSalida').textContent = String(conSalida);
   $('statLlegada').textContent = String(conLlegada);
 
   const partesEstado = [`ID ${currentID}`];
@@ -549,8 +584,6 @@ function pintar(){
   if(currentCH && currentCH !== 'TODOS') partesEstado.push(currentCH);
   partesEstado.push('recuadros actualizados en tiempo real desde Firebase.');
   $('estado').textContent = partesEstado.join(' · ');
-
-  const lista = [...listaCH, ...listaTC];
 
   if(!lista.length){
     empty.style.display = 'block';
@@ -560,22 +593,22 @@ function pintar(){
 
   lista.forEach(item => {
     const card = document.createElement('div');
-    if(item.tipo === 'ch'){
-      card.className = 'card ch';
-      card.innerHTML = `
-        <div class="dorsal">${item.dorsal}</div>
-        <div class="status">${item.ch}</div>
-        <div class="times">Paso: ${item.hora || '—'}</div>
-      `;
-    }else{
-      const ok = !!item.llegada;
-      card.className = 'card ' + (ok ? 'done' : 'pending');
-      card.innerHTML = `
-        <div class="dorsal">${item.dorsal}</div>
-        <div class="status">${ok ? 'LLEGADA OK' : 'EN TRAMO'}</div>
-        <div class="times">S: ${item.salida || '—'}<br>LL: ${item.llegada || '—'}</div>
-      `;
-    }
+    card.className = 'card ' + item.estado;
+
+    let status = 'EN TRAMO';
+    if(item.estado === 'done') status = 'LLEGADA OK';
+    else if(item.estado === 'ch') status = item.ch || 'CH';
+
+    const lineas = [];
+    if(currentCH && currentCH !== 'TODOS') lineas.push(`Paso ${item.ch || currentCH}: ${item.pasoCH || '—'}`);
+    lineas.push(`S: ${item.salida || '—'}`);
+    lineas.push(`LL: ${item.llegada || '—'}`);
+
+    card.innerHTML = `
+      <div class="dorsal">${item.dorsal}</div>
+      <div class="status">${status}</div>
+      <div class="times">${lineas.join('<br>')}</div>
+    `;
     cards.appendChild(card);
   });
 }

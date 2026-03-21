@@ -275,6 +275,44 @@ th,td{
   }
 }
 
+.logo-g6k-footer{
+  position:fixed;
+  left:50%;
+  bottom:10px;
+  transform:translateX(-50%);
+  z-index:9998;
+  pointer-events:none;
+  background:rgba(0,0,0,0.58);
+  color:#fff;
+  border:1px solid rgba(255,255,255,0.16);
+  border-radius:12px;
+  padding:6px 14px;
+  font-weight:700;
+  letter-spacing:.4px;
+  box-shadow:0 4px 14px rgba(0,0,0,0.22);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+}
+.logo-g6k-footer .g6k-mark{
+  color:#ffffff;
+  font-size:15px;
+  line-height:1;
+}
+.logo-g6k-footer sup{
+  font-size:.62em;
+  vertical-align:super;
+  margin-left:1px;
+}
+@media (max-width: 768px){
+  .logo-g6k-footer{
+    bottom:8px;
+    padding:5px 10px;
+    font-size:12px;
+    border-radius:10px;
+  }
+}
+
+
 </style>
 </head>
 
@@ -2515,6 +2553,8 @@ function mostrarVistaPreviaClasificacion(){
 }
 
 </script>
+
+<div class="logo-g6k-footer"><span class="g6k-mark">G6K<sup>®</sup></span></div>
 
 </body>
 </html>

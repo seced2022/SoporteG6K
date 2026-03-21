@@ -2230,7 +2230,7 @@ window.exportarClasificacionPDF = async function(){
   }
 };
 
-/* ===================== CH (SIN CAMBIOS) ===================== */
+/* ===================== CH ===================== */
 let tramosCHCache = {};
 
 function engancharTramosSoloParaCH(id){
@@ -2239,6 +2239,49 @@ function engancharTramosSoloParaCH(id){
     cargarSelectorCH();
     pintarCH();
   });
+}
+
+async function editarHoraCH(chKey, keyActual, horaActual){
+  if(!keyActual){
+    alert("No se puede editar: no se encontró la clave del registro (push id).");
+    return;
+  }
+
+  const nueva = prompt(`Editar hora de paso en ${chKey}
+Formato: HH:MM:SS.mmm`, horaActual || "");
+  if(nueva === null) return;
+
+  const h = (nueva || "").trim();
+  if(!esHoraValida(h)){
+    alert("Formato inválido. Usa HH:MM:SS.mmm (ej: 00:12:34.567)");
+    return;
+  }
+
+  const id = $("selectorID_CH").value;
+  const ruta = `IDs/${id}/tramos/TC0/puestos/${chKey}/tiempos/${keyActual}`;
+  await update(ref(db, ruta), { tiempo: h, editado: Date.now() });
+}
+
+async function editarDorsalCH(chKey, dorsalActual, keyActual){
+  if(!keyActual){
+    alert("No se puede editar: no se encontró la clave del registro (push id).");
+    return;
+  }
+
+  const sugerido = esSinDorsal(dorsalActual) ? "" : dorsalActual;
+  const nueva = prompt(`Asignar / editar DORSAL en ${chKey}
+Solo números (ej: 12)`, sugerido);
+  if(nueva === null) return;
+
+  const d = normalizarDorsal(nueva);
+  if(!esDorsalValidoSoloNumeros(d)){
+    alert("Dorsal inválido. Debe ser SOLO números (ej: 12).");
+    return;
+  }
+
+  const id = $("selectorID_CH").value;
+  const ruta = `IDs/${id}/tramos/TC0/puestos/${chKey}/tiempos/${keyActual}`;
+  await update(ref(db, ruta), { dorsal: d, editado: Date.now() });
 }
 
 $("selectorID_CH").addEventListener("change", ()=>{
@@ -2287,12 +2330,12 @@ function pintarCH(){
     if(selCH !== "TODOS" && chKey !== selCH) return;
 
     const tiempos = puestos?.[chKey]?.tiempos || {};
-    Object.values(tiempos).forEach(reg=>{
+    Object.entries(tiempos).forEach(([key, reg])=>{
       const dorsal = reg?.dorsal;
       const hora = reg?.tiempo;
       if(!dorsal || !hora) return;
 
-      filas.push({ ch: chKey, dorsal, hora });
+      filas.push({ ch: chKey, key, dorsal, hora });
     });
   });
 
@@ -2305,14 +2348,26 @@ function pintarCH(){
 
   filas.forEach(f=>{
     const tr = document.createElement("tr");
-    tr.style.cursor = "pointer";
-    tr.title = "Click para cargar y editar este inscrito";
-    tr.onclick = ()=>editarInscrito(num);
-    tr.innerHTML = `
-      <td>${f.ch}</td>
-      <td>${f.dorsal}</td>
-      <td>${f.hora}</td>
-    `;
+
+    const tdCH = document.createElement("td");
+    tdCH.textContent = f.ch;
+
+    const tdD = document.createElement("td");
+    tdD.textContent = f.dorsal;
+    tdD.style.cursor = "pointer";
+    tdD.title = "Click para asignar/editar dorsal (solo números)";
+    if(esSinDorsal(f.dorsal)) tdD.classList.add("sin-dorsal");
+    tdD.onclick = ()=> editarDorsalCH(f.ch, f.dorsal, f.key);
+
+    const tdH = document.createElement("td");
+    tdH.textContent = f.hora;
+    tdH.style.cursor = "pointer";
+    tdH.title = "Click para editar hora de paso";
+    tdH.onclick = ()=> editarHoraCH(f.ch, f.key, f.hora);
+
+    tr.appendChild(tdCH);
+    tr.appendChild(tdD);
+    tr.appendChild(tdH);
     tbody.appendChild(tr);
   });
 

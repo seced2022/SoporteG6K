@@ -174,6 +174,67 @@
     box-shadow:0 8px 18px rgba(0,0,0,.3);
   }
   .muted{color:var(--muted)}
+
+  .fullscreen-badge{
+    display:none;
+    margin:0 0 16px;
+    padding:14px 18px;
+    border-radius:20px;
+    border:1px solid rgba(255,255,255,.18);
+    background:linear-gradient(180deg, rgba(26,39,26,.98), rgba(10,15,10,.98));
+    box-shadow:0 10px 24px rgba(0,0,0,.28);
+    align-items:center;
+    justify-content:center;
+    gap:18px;
+    text-align:center;
+  }
+  .fullscreen-badge .tag{
+    font-size:14px;
+    font-weight:800;
+    color:var(--muted);
+    letter-spacing:.8px;
+    text-transform:uppercase;
+  }
+  .fullscreen-badge .value{
+    font-size:34px;
+    font-weight:900;
+    color:#e9ffe4;
+    line-height:1;
+  }
+  body.kiosk-mode .wrap{
+    max-width:none;
+    padding:18px 18px 86px;
+  }
+  body.kiosk-mode .hero,
+  body.kiosk-mode .controls,
+  body.kiosk-mode .summary,
+  body.kiosk-mode .legend,
+  body.kiosk-mode #estado,
+  body.kiosk-mode #btnRefrescar,
+  body.kiosk-mode .field label,
+  body.kiosk-mode #empty{
+    display:none !important;
+  }
+  body.kiosk-mode .panel{
+    background:transparent;
+    border:none;
+    box-shadow:none;
+    padding:0;
+  }
+  body.kiosk-mode .fullscreen-badge{
+    display:flex;
+  }
+  body.kiosk-mode .cards{
+    margin-top:0;
+    grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
+    gap:18px;
+  }
+  body.kiosk-mode .card{
+    min-height:148px;
+  }
+  body.kiosk-mode .dorsal{font-size:52px}
+  body.kiosk-mode .status{font-size:16px}
+  body.kiosk-mode .times{font-size:13px}
   @media (max-width:960px){
     .controls,.summary{grid-template-columns:1fr 1fr}
     .top-logo img{height:38px}
@@ -220,6 +281,18 @@
         <div class="stat"><span class="k">TC</span><span class="v" id="statTC">—</span></div>
         <div class="stat"><span class="k">Con salida</span><span class="v" id="statSalida">0</span></div>
         <div class="stat"><span class="k">Con llegada</span><span class="v" id="statLlegada">0</span></div>
+      </div>
+
+
+      <div class="fullscreen-badge" id="fullscreenBadge">
+        <div>
+          <div class="tag">ID</div>
+          <div class="value" id="fsID">—</div>
+        </div>
+        <div>
+          <div class="tag">TC</div>
+          <div class="value" id="fsTC">—</div>
+        </div>
       </div>
 
       <div class="legend">
@@ -379,6 +452,8 @@ function construirPanelDorsales(){
 function pintar(){
   $('statID').textContent = currentID || '—';
   $('statTC').textContent = currentTC || '—';
+  $('fsID').textContent = currentID || '—';
+  $('fsTC').textContent = currentTC || '—';
 
   const cards = $('cards');
   const empty = $('empty');
@@ -436,6 +511,14 @@ $('btnRefrescar').addEventListener('click', async () => {
   pintar();
 });
 
+function syncFullscreenMode(){
+  const active = !!document.fullscreenElement;
+  document.body.classList.toggle('kiosk-mode', active);
+  $('btnPantalla').textContent = active ? 'Salir pantalla completa' : 'Pantalla completa';
+}
+
+document.addEventListener('fullscreenchange', syncFullscreenMode);
+
 $('btnPantalla').addEventListener('click', async () => {
   try{
     if(!document.fullscreenElement) await document.documentElement.requestFullscreen();
@@ -443,6 +526,7 @@ $('btnPantalla').addEventListener('click', async () => {
   }catch(e){}
 });
 
+syncFullscreenMode();
 cargarIDs();
 </script>
 </body>

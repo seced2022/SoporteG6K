@@ -524,12 +524,16 @@ function construirPanelVisible(){
     }));
   }
 
+  const listaCH = construirPanelCH();
   const mapaTC = {};
   listaTC.forEach(item => {
     mapaTC[item.dorsal] = item;
   });
 
-  return construirPanelCH().map(itemCH => {
+  const dorsalesEnCH = new Set();
+
+  const primeroCH = listaCH.map(itemCH => {
+    dorsalesEnCH.add(itemCH.dorsal);
     const itemTC = mapaTC[itemCH.dorsal] || null;
     const salida = itemTC?.salida || '';
     const llegada = itemTC?.llegada || '';
@@ -549,6 +553,22 @@ function construirPanelVisible(){
       estado
     };
   });
+
+  const restoTC = listaTC
+    .filter(item => !dorsalesEnCH.has(item.dorsal))
+    .map(item => ({
+      dorsal: item.dorsal,
+      ch: currentCH,
+      pasoCH: '',
+      horaMs: null,
+      salida: item.salida || '',
+      salidaMs: item.salidaMs ?? null,
+      llegada: item.llegada || '',
+      llegadaMs: item.llegadaMs ?? null,
+      estado: item.llegada ? 'done' : 'pending'
+    }));
+
+  return [...primeroCH, ...restoTC];
 }
 
 function pintar(){

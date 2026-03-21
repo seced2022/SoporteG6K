@@ -18,6 +18,8 @@
     --blue-card-border:#d7f4ff;
     --green-card:#74dd7d;
     --green-card-border:#dfffe1;
+    --gray-card:#d9dee3;
+    --gray-card-border:#f4f6f8;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -63,7 +65,7 @@
   }
   .controls{
     display:grid;
-    grid-template-columns:repeat(4,minmax(180px,1fr));
+    grid-template-columns:repeat(5,minmax(160px,1fr));
     gap:12px;
     align-items:end;
   }
@@ -99,7 +101,7 @@
   .btn:hover{transform:translateY(-1px)}
   .summary{
     display:grid;
-    grid-template-columns:repeat(4,minmax(140px,1fr));
+    grid-template-columns:repeat(5,minmax(120px,1fr));
     gap:12px;
     margin-top:16px;
   }
@@ -120,6 +122,7 @@
   .dot{width:14px; height:14px; border-radius:50%; display:inline-block}
   .dot.blue{background:var(--blue-card); border:1px solid var(--blue-card-border)}
   .dot.green{background:var(--green-card); border:1px solid var(--green-card-border)}
+  .dot.gray{background:var(--gray-card); border:1px solid #ffffff}
   .cards{
     display:grid;
     grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
@@ -146,6 +149,11 @@
     background:linear-gradient(180deg, rgba(116,221,125,.95), rgba(86,199,96,.92));
     color:#08220e;
     border-color:var(--green-card-border);
+  }
+  .card.ch{
+    background:linear-gradient(180deg, rgba(217,222,227,.96), rgba(197,205,213,.94));
+    color:#182029;
+    border-color:var(--gray-card-border);
   }
   .dorsal{font-size:42px; font-weight:900; line-height:1}
   .status{font-size:14px; font-weight:800; margin-top:10px}
@@ -253,7 +261,7 @@
   <div class="wrap">
     <div class="hero">
       <h1>Panel de seguimiento por TC</h1>
-      <p>Muestra automáticamente los dorsales que tienen <b>salida</b> en el ID y TC seleccionados. En <b>azul claro</b> si solo tienen salida y en <b>verde</b> cuando ya tienen llegada.</p>
+      <p>Muestra automáticamente los dorsales que tienen <b>salida</b> en el ID y TC seleccionados. En <b>azul claro</b> si solo tienen salida y en <b>verde</b> cuando ya tienen llegada. Además, si eliges un <b>CH</b>, aparecerán sus dorsales en <b>gris claro</b>, colocando siempre primero el último que ha pasado por ese CH.</p>
     </div>
 
     <div class="panel">
@@ -265,6 +273,10 @@
         <div class="field">
           <label for="selectorTC">TC</label>
           <select id="selectorTC"></select>
+        </div>
+        <div class="field">
+          <label for="selectorCH">CH</label>
+          <select id="selectorCH"></select>
         </div>
         <div class="field">
           <label>&nbsp;</label>
@@ -279,6 +291,7 @@
       <div class="summary">
         <div class="stat"><span class="k">ID</span><span class="v" id="statID">—</span></div>
         <div class="stat"><span class="k">TC</span><span class="v" id="statTC">—</span></div>
+        <div class="stat"><span class="k">CH</span><span class="v" id="statCH">—</span></div>
         <div class="stat"><span class="k">Con salida</span><span class="v" id="statSalida">0</span></div>
         <div class="stat"><span class="k">Con llegada</span><span class="v" id="statLlegada">0</span></div>
       </div>
@@ -293,16 +306,21 @@
           <div class="tag">TC</div>
           <div class="value" id="fsTC">—</div>
         </div>
+        <div>
+          <div class="tag">CH</div>
+          <div class="value" id="fsCH">—</div>
+        </div>
       </div>
 
       <div class="legend">
         <div class="pill"><span class="dot blue"></span> Tiene salida y aún no llegada</div>
         <div class="pill"><span class="dot green"></span> Tiene salida y llegada</div>
+        <div class="pill"><span class="dot gray"></span> Tiene paso por CH</div>
       </div>
 
       <div id="estado" class="muted"></div>
       <div id="cards" class="cards"></div>
-      <div id="empty" class="empty" style="display:none;">No hay dorsales con tiempo de salida en este ID y TC.</div>
+      <div id="empty" class="empty" style="display:none;">No hay dorsales para este ID con el TC y/o CH seleccionado.</div>
     </div>
   </div>
 
@@ -329,6 +347,7 @@ const $ = id => document.getElementById(id);
 let idsData = {};
 let currentID = "";
 let currentTC = "";
+let currentCH = "TODOS";
 let tramosListenerOff = null;
 let tramosActuales = {};
 
@@ -387,7 +406,25 @@ function cargarTCs(){
   if(prev && tcs.includes(prev)) sel.value = prev;
   else if(tcs.length) sel.value = tcs[0];
   currentTC = sel.value || '';
+  cargarCHs();
   pintar();
+}
+
+function cargarCHs(){
+  const sel = $('selectorCH');
+  const prev = sel.value || currentCH || 'TODOS';
+  const puestos = tramosActuales?.TC0?.puestos || {};
+  const chKeys = Object.keys(puestos).filter(k => /^CH\d+$/i.test(k)).sort((a,b)=>extraerNumero(a)-extraerNumero(b));
+  sel.innerHTML = '<option value="TODOS">Sin CH</option>';
+  chKeys.forEach(ch => {
+    const op = document.createElement('option');
+    op.value = ch;
+    op.textContent = ch;
+    sel.appendChild(op);
+  });
+  if(prev && ([...sel.options].some(o => o.value === prev))) sel.value = prev;
+  else sel.value = 'TODOS';
+  currentCH = sel.value || 'TODOS';
 }
 
 function engancharTramos(){
@@ -399,6 +436,7 @@ function engancharTramos(){
   }
   tramosListenerOff = onValue(ref(db, `IDs/${currentID}/tramos`), snap => {
     tramosActuales = snap.val() || {};
+    cargarCHs();
     pintar();
   });
 }
@@ -449,17 +487,49 @@ function construirPanelDorsales(){
   });
 }
 
+function construirPanelCH(){
+  if(!currentCH || currentCH === 'TODOS') return [];
+  const tiempos = tramosActuales?.TC0?.puestos?.[currentCH]?.tiempos || {};
+  const porDorsal = {};
+
+  Object.entries(tiempos).forEach(([key, reg]) => {
+    const dorsal = String(reg?.dorsal ?? '').trim();
+    const hora = String(reg?.tiempo ?? '').trim();
+    if(!esDorsalNumerico(dorsal) || !hora) return;
+    const ms = parseHoraToMs(hora);
+    if(!porDorsal[dorsal] || ms == null || porDorsal[dorsal].horaMs == null || ms > porDorsal[dorsal].horaMs){
+      porDorsal[dorsal] = {
+        tipo: 'ch',
+        dorsal,
+        ch: currentCH,
+        hora,
+        horaMs: ms
+      };
+    }
+  });
+
+  return Object.values(porDorsal).sort((a,b) => {
+    const am = a.horaMs == null ? -1 : a.horaMs;
+    const bm = b.horaMs == null ? -1 : b.horaMs;
+    if(am !== bm) return bm - am;
+    return (+a.dorsal) - (+b.dorsal);
+  });
+}
+
 function pintar(){
   $('statID').textContent = currentID || '—';
   $('statTC').textContent = currentTC || '—';
+  $('statCH').textContent = currentCH && currentCH !== 'TODOS' ? currentCH : '—';
   $('fsID').textContent = currentID || '—';
   $('fsTC').textContent = currentTC || '—';
+  $('fsCH').textContent = currentCH && currentCH !== 'TODOS' ? currentCH : '—';
 
   const cards = $('cards');
   const empty = $('empty');
   cards.innerHTML = '';
 
   if(!currentID || !currentTC){
+    $('statCH').textContent = '—';
     $('statSalida').textContent = '0';
     $('statLlegada').textContent = '0';
     $('estado').textContent = 'Selecciona un ID y un TC.';
@@ -467,12 +537,20 @@ function pintar(){
     return;
   }
 
-  const lista = construirPanelDorsales();
-  const conLlegada = lista.filter(x => !!x.llegada).length;
+  const listaTC = construirPanelDorsales();
+  const listaCH = construirPanelCH();
+  const conLlegada = listaTC.filter(x => !!x.llegada).length;
 
-  $('statSalida').textContent = String(lista.length);
+  $('statSalida').textContent = String(listaTC.length);
   $('statLlegada').textContent = String(conLlegada);
-  $('estado').textContent = `ID ${currentID} · ${currentTC} · recuadros actualizados en tiempo real desde Firebase.`;
+
+  const partesEstado = [`ID ${currentID}`];
+  if(currentTC) partesEstado.push(currentTC);
+  if(currentCH && currentCH !== 'TODOS') partesEstado.push(currentCH);
+  partesEstado.push('recuadros actualizados en tiempo real desde Firebase.');
+  $('estado').textContent = partesEstado.join(' · ');
+
+  const lista = [...listaCH, ...listaTC];
 
   if(!lista.length){
     empty.style.display = 'block';
@@ -482,13 +560,22 @@ function pintar(){
 
   lista.forEach(item => {
     const card = document.createElement('div');
-    const ok = !!item.llegada;
-    card.className = 'card ' + (ok ? 'done' : 'pending');
-    card.innerHTML = `
-      <div class="dorsal">${item.dorsal}</div>
-      <div class="status">${ok ? 'LLEGADA OK' : 'EN TRAMO'}</div>
-      <div class="times">S: ${item.salida || '—'}<br>LL: ${item.llegada || '—'}</div>
-    `;
+    if(item.tipo === 'ch'){
+      card.className = 'card ch';
+      card.innerHTML = `
+        <div class="dorsal">${item.dorsal}</div>
+        <div class="status">${item.ch}</div>
+        <div class="times">Paso: ${item.hora || '—'}</div>
+      `;
+    }else{
+      const ok = !!item.llegada;
+      card.className = 'card ' + (ok ? 'done' : 'pending');
+      card.innerHTML = `
+        <div class="dorsal">${item.dorsal}</div>
+        <div class="status">${ok ? 'LLEGADA OK' : 'EN TRAMO'}</div>
+        <div class="times">S: ${item.salida || '—'}<br>LL: ${item.llegada || '—'}</div>
+      `;
+    }
     cards.appendChild(card);
   });
 }
@@ -504,10 +591,16 @@ $('selectorTC').addEventListener('change', () => {
   pintar();
 });
 
+$('selectorCH').addEventListener('change', () => {
+  currentCH = $('selectorCH').value || 'TODOS';
+  pintar();
+});
+
 $('btnRefrescar').addEventListener('click', async () => {
   if(!currentID) return;
   const snap = await get(ref(db, `IDs/${currentID}/tramos`));
   tramosActuales = snap.val() || {};
+  cargarCHs();
   pintar();
 });
 

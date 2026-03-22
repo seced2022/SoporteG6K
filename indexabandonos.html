@@ -125,6 +125,9 @@
     padding:14px;
     min-height:190px;
   }
+  .plate-box.hidden-empty {
+    display:none;
+  }
   .plate-tools {
     display:flex;
     gap:10px;
@@ -172,6 +175,17 @@
   .cards-wrap {
     padding:0 22px 24px;
   }
+  .cards-title {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:0 0 14px;
+    font-size:34px;
+    font-weight:900;
+    letter-spacing:.12em;
+    color:#ffffff;
+    text-transform:uppercase;
+  }
   .cards-grid {
     display:grid;
     grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
@@ -184,12 +198,12 @@
     justify-content:center;
     border-radius:18px;
     font-size:34px;
-    font-weight:800;
+    font-weight:900;
     letter-spacing:.02em;
-    background:var(--danger-soft);
-    border:3px solid var(--danger-border);
-    color:#7b1111;
-    box-shadow:0 12px 22px rgba(0,0,0,.18);
+    background:linear-gradient(180deg,#c92b2b,#8e1414);
+    border:3px solid #ff7b7b;
+    color:#ffffff;
+    box-shadow:0 12px 22px rgba(0,0,0,.22);
   }
   .empty {
     padding:40px 18px;
@@ -257,6 +271,10 @@
     padding:8px 18px 18px;
     height:calc(100vh - 170px);
     overflow:auto;
+  }
+  body.fullscreen-mode .cards-title {
+    margin:0 0 16px;
+    font-size:42px;
   }
   body.fullscreen-mode .cards-grid {
     grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
@@ -352,6 +370,7 @@
       </div>
 
       <div class="cards-wrap">
+        <div class="cards-title">ABANDONOS</div>
         <div id="cards" class="cards-grid"></div>
         <div id="empty" class="empty" style="display:none;">No hay abandonos guardados para este ID.</div>
       </div>
@@ -482,14 +501,13 @@ function readPlate(key){
 
 function renderPlate(slot, dataUrl){
   const preview = $(slot === 1 ? 'preview1' : 'preview2');
+  const box = preview.closest('.plate-box');
   preview.innerHTML = '';
   if(!dataUrl){
-    const empty = document.createElement('div');
-    empty.className = 'plate-empty';
-    empty.textContent = `Sube la placa ${slot} en PNG`;
-    preview.appendChild(empty);
+    box.classList.add('hidden-empty');
     return;
   }
+  box.classList.remove('hidden-empty');
   const img = document.createElement('img');
   img.src = dataUrl;
   img.alt = `Placa ${slot}`;

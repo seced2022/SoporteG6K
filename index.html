@@ -876,7 +876,36 @@ window.crearRally = async function(){
 let currentID = null;
 let currentTramosData = {};
 let inscritosCache = {};
+let abandonosCache = {};
+let offAbandonosCurrent = null;
 const selectedTCs = new Set();
+
+function dorsalTieneAbandono(num){
+  return !!abandonosCache?.[String(num)];
+}
+
+function obtenerAbandonoDorsal(num){
+  return abandonosCache?.[String(num)] || null;
+}
+
+function dorsalAbandonoEnTC(num, tc){
+  const ab = obtenerAbandonoDorsal(num);
+  return !!(ab && String(ab.tc || "") === String(tc || ""));
+}
+
+function engancharAbandonosActuales(id){
+  abandonosCache = {};
+  if(offAbandonosCurrent) offAbandonosCurrent();
+  if(!id) return;
+  offAbandonosCurrent = onValue(ref(db, `IDs/${id}/abandonos`), snap=>{
+    abandonosCache = snap.val() || {};
+    pintarRecuadrosTC();
+    const prev = document.getElementById("vistaPreviaClasificacion");
+    if(prev && prev.innerHTML.trim()){
+      try{ mostrarVistaPreviaClasificacion(); }catch(e){}
+    }
+  });
+}
 
 onValue(ref(db,"IDs"), snap=>{
   const data = snap.val() || {};
@@ -968,6 +997,7 @@ function engancharLecturasDeID(id){
   });
 
   engancharInscritos(id);
+  engancharAbandonosActuales(id);
 }
 
 function engancharInscritos(id){
@@ -1246,7 +1276,19 @@ function getVehiculo(num){
 }
 
 function dorsalClasificable(num){
-  return inscritosCache?.[num]?.clasificar === true;
+  return inscritosCache?.[num]?.clasificar === true && !dorsalTieneAbandono(num);
+}
+
+function obtenerListaAbandonosFiltrados(filtros = {}, tc = ""){
+  return Object.values(abandonosCache || {})
+    .filter(ab=>ab && String(ab.dorsal || "").trim())
+    .filter(ab=>!tc || String(ab.tc || "") === String(tc))
+    .filter(ab=>{
+      const d = inscritosCache?.[ab.dorsal] || {};
+      if(Object.keys(filtros || {}).length && !coincideFiltrosInscrito(d, filtros)) return false;
+      return true;
+    })
+    .sort((a,b)=>(b?.timestamp||0)-(a?.timestamp||0));
 }
 
 /* ================= IMPORTAR INSCRITOS DESDE PDF ================= */
@@ -1528,6 +1570,8 @@ function calcularClasificacionTC(tc){
       }else{
         tiempoStr = "ERROR";
       }
+    }else if(msS != null && msLL == null && dorsalAbandonoEnTC(dorsal, tc)){
+      tiempoStr = "ABANDONO";
     }
 
     return {
@@ -1542,11 +1586,14 @@ function calcularClasificacionTC(tc){
     };
   });
 
-  // Orden: los que tienen tiempo primero, luego EN CURSO, luego ERROR
   filas.sort((a,b)=>{
-    const aKey = (a.tiempoMs == null) ? 9e18 : a.tiempoMs;
-    const bKey = (b.tiempoMs == null) ? 9e18 : b.tiempoMs;
-    return aKey - bKey;
+    const rank = (f)=>{
+      if(f.tiempoMs != null) return f.tiempoMs;
+      if(f.tiempo === "ABANDONO") return 9e18 - 3;
+      if(f.tiempo === "EN CURSO") return 9e18 - 2;
+      return 9e18 - 1;
+    };
+    return rank(a) - rank(b);
   });
 
   return filas;
@@ -1721,6 +1768,9 @@ function pintarTablaDeUnTC(tc, tbody, infoEl){
         tiempo = "ERROR";
         orden = 9999999998;
       }
+    }else if(msS != null && msLL == null && dorsalAbandonoEnTC(dorsal, tc)){
+      tiempo = "ABANDONO";
+      orden = 9999999997;
     }
 
     filas.push({
@@ -2234,6 +2284,20 @@ function getImagenVehiculo(num){
 }
 
 
+function construirFilasAbandonosPDF(listaAbandonos){
+  return listaAbandonos.map((ab, i)=>{
+    const d = inscritosCache?.[ab.dorsal] || {};
+    return [
+      i + 1,
+      ab.dorsal || "",
+      `${d.piloto || ""}${d.copiloto ? " / " + d.copiloto : ""}`,
+      d.vehiculo || "",
+      ab.tc || "",
+      formatearFechaAbandono(ab.timestamp)
+    ];
+  });
+}
+
 window.exportarClasificacionPDF = async function(){
   try{
     if(!window.jspdf || !window.jspdf.jsPDF){
@@ -2254,53 +2318,52 @@ window.exportarClasificacionPDF = async function(){
     let cabeceraSecundaria = "";
     let filas = [];
     let head = [];
+    let listaAbandonos = [];
 
     if(tipo === "GENERAL"){
       const lista = calcularGeneralFiltrado(filtros);
+      listaAbandonos = obtenerListaAbandonosFiltrados(filtros);
       head = [["POS","Nº","Participantes","Vehículo","Tramos OK","Total"]];
-      filas = await Promise.all(lista.map(async (f, i)=>{
-        return {
-          pos: i+1,
-          dorsal: f.dorsal,
-          participantes: { 
-            piloto: f.piloto, 
-            copiloto: f.copiloto,
-            banderaPiloto: await urlToDataURL(getBanderaPiloto(f.dorsal)),
-            banderaCopiloto: await urlToDataURL(getBanderaCopiloto(f.dorsal))
-          },
-          vehiculo: {
-            texto: f.vehiculo,
-            logo: await urlToDataURL(getImagenVehiculo(f.dorsal))
-          },
-          tramosOK: f.tramosOK,
-          total: f.total
-        };
-      }));
+      filas = await Promise.all(lista.map(async (f, i)=>({
+        pos: i+1,
+        dorsal: f.dorsal,
+        participantes: {
+          piloto: f.piloto,
+          copiloto: f.copiloto,
+          banderaPiloto: await urlToDataURL(getBanderaPiloto(f.dorsal)),
+          banderaCopiloto: await urlToDataURL(getBanderaCopiloto(f.dorsal))
+        },
+        vehiculo: {
+          texto: f.vehiculo,
+          logo: await urlToDataURL(getImagenVehiculo(f.dorsal))
+        },
+        tramosOK: f.tramosOK,
+        total: f.total
+      })));
       cabeceraSecundaria = `${id} · General`;
     } else {
       const tc = $("selectorTramoPDF").value;
       const lista = calcularTramoFiltrado(tc, filtros);
+      listaAbandonos = obtenerListaAbandonosFiltrados(filtros, tc);
       head = [["POS","TC","Nº","Participantes","Vehículo","Salida","Llegada","Tiempo"]];
-      filas = await Promise.all(lista.map(async (f, i)=>{
-        return {
-          pos: i+1,
-          tc: tc,
-          dorsal: f.dorsal,
-          participantes: {
-            piloto: f.piloto,
-            copiloto: f.copiloto,
-            banderaPiloto: await urlToDataURL(getBanderaPiloto(f.dorsal)),
-            banderaCopiloto: await urlToDataURL(getBanderaCopiloto(f.dorsal))
-          },
-          vehiculo: {
-            texto: f.vehiculo,
-            logo: await urlToDataURL(getImagenVehiculo(f.dorsal))
-          },
-          salida: f.salida,
-          llegada: f.llegada,
-          tiempo: f.tiempo
-        };
-      }));
+      filas = await Promise.all(lista.map(async (f, i)=>({
+        pos: i+1,
+        tc,
+        dorsal: f.dorsal,
+        participantes: {
+          piloto: f.piloto,
+          copiloto: f.copiloto,
+          banderaPiloto: await urlToDataURL(getBanderaPiloto(f.dorsal)),
+          banderaCopiloto: await urlToDataURL(getBanderaCopiloto(f.dorsal))
+        },
+        vehiculo: {
+          texto: f.vehiculo,
+          logo: await urlToDataURL(getImagenVehiculo(f.dorsal))
+        },
+        salida: f.salida,
+        llegada: f.llegada,
+        tiempo: f.tiempo
+      })));
       cabeceraSecundaria = `${id} · ${tc}`;
     }
 
@@ -2311,7 +2374,7 @@ window.exportarClasificacionPDF = async function(){
     if(filtros.clase) filtrosTxt.push("Clase: " + filtros.clase);
     if(filtros.categoria) filtrosTxt.push("Categoría: " + filtros.categoria);
 
-    if(!filas.length){
+    if(!filas.length && !listaAbandonos.length){
       $("estadoPDF").textContent = "No hay datos para exportar con esos filtros.";
       return;
     }
@@ -2324,78 +2387,91 @@ window.exportarClasificacionPDF = async function(){
       doc.text(subtitulo, 14, 21);
     }
 
-    if(fechaHora){
-      doc.setFontSize(10);
-      doc.text(fechaHora, 150, subtitulo ? 21 : 15, { align: "right" });
-    }
-
     doc.setFontSize(10);
-    doc.text(cabeceraSecundaria, 14, subtitulo ? 27 : 22);
+    doc.text(cabeceraSecundaria, 14, subtitulo ? 27 : 21);
 
+    let startY = subtitulo ? 33 : 27;
+    if(fechaHora){
+      doc.text(fechaHora, 14, startY);
+      startY += 6;
+    }
     if(filtrosTxt.length){
-      doc.setFontSize(9);
-      doc.text(filtrosTxt.join(" · "), 14, subtitulo ? 33 : 28);
+      doc.text(filtrosTxt.join(" · "), 14, startY);
+      startY += 6;
     }
 
-    const startY = filtrosTxt.length ? (subtitulo ? 38 : 33) : (subtitulo ? 32 : 27);
+    if(filas.length){
+      const body = (tipo === "GENERAL")
+        ? filas.map(r=>[r.pos, r.dorsal, "", "", r.tramosOK, r.total])
+        : filas.map(r=>[r.pos, r.tc, r.dorsal, "", "", r.salida, r.llegada, r.tiempo]);
 
-    // Preparamos body textual base
-    const body = filas.map(r=>{
-      if(tipo === "GENERAL"){
-        return [r.pos, r.dorsal, "", "", r.tramosOK, r.total];
-      }else{
-        return [r.pos, r.tc, r.dorsal, "", "", r.salida, r.llegada, r.tiempo];
-      }
-    });
+      doc.autoTable({
+        startY,
+        head,
+        body,
+        styles: { fontSize: 8, cellPadding: {top: 4, right: 2, bottom: 4, left: 2}, minCellHeight: 12, valign: "middle" },
+        headStyles: { fillColor: [230, 6, 0] },
+        margin: { left: 8, right: 8 },
+        columnStyles: (tipo === "GENERAL") ? {2:{cellWidth:58},3:{cellWidth:42}} : {3:{cellWidth:58},4:{cellWidth:42}},
+        didDrawCell: function(data){
+          if(data.section !== "body") return;
+          const row = filas[data.row.index];
+          if(!row) return;
 
-    doc.autoTable({
-      startY,
-      head: head,
-      body: body,
-      styles: { fontSize: 8, cellPadding: {top: 4, right: 2, bottom: 4, left: 2}, minCellHeight: 12, valign: "middle" },
-      headStyles: { fillColor: [230, 6, 0] },
-      margin: { left: 8, right: 8 },
-      columnStyles: (tipo === "GENERAL") ? {2:{cellWidth:58},3:{cellWidth:42}} : {3:{cellWidth:58},4:{cellWidth:42}},
-      didDrawCell: function(data){
-        if(data.section !== "body") return;
-        const row = filas[data.row.index];
-        if(!row) return;
+          const colParticipantes = (tipo === "GENERAL") ? 2 : 3;
+          const colVehiculo = (tipo === "GENERAL") ? 3 : 4;
 
-        // Participantes column
-        const colParticipantes = (tipo === "GENERAL") ? 2 : 3;
-        const colVehiculo = (tipo === "GENERAL") ? 3 : 4;
+          if(data.column.index === colParticipantes){
+            const x = data.cell.x + 2;
+            const y = data.cell.y + 3;
+            const lineGap = 5;
 
-        if(data.column.index === colParticipantes){
-          const x = data.cell.x + 2;
-          const y = data.cell.y + 3;
-          const lineGap = 5;
+            if(row.participantes?.banderaPiloto){
+              try{ doc.addImage(row.participantes.banderaPiloto, "PNG", x, y - 1, 5, 3.5); }catch(e){}
+            }
+            doc.text(row.participantes?.piloto || "", x + 7, y + 2);
 
-          if(row.participantes?.banderaPiloto){
-            try{ doc.addImage(row.participantes.banderaPiloto, "PNG", x, y, 5, 3.5); }catch(e){}
+            if(row.participantes?.banderaCopiloto){
+              try{ doc.addImage(row.participantes.banderaCopiloto, "PNG", x, y + lineGap - 1, 5, 3.5); }catch(e){}
+            }
+            doc.text(row.participantes?.copiloto || "", x + 7, y + lineGap + 2);
           }
-          doc.text(String(row.participantes?.piloto || ""), x + 7, y + 3);
 
-          if(row.participantes?.banderaCopiloto){
-            try{ doc.addImage(row.participantes.banderaCopiloto, "PNG", x, y + lineGap, 5, 3.5); }catch(e){}
-          }
-          doc.text(String(row.participantes?.copiloto || ""), x + 7, y + lineGap + 3);
-        }
-
-        if(data.column.index === colVehiculo){
-          const x = data.cell.x + 2;
-          const y = data.cell.y + 3;
-          if(row.vehiculo?.logo){
-            try{ doc.addImage(row.vehiculo.logo, "PNG", x, y, 6, 6); }catch(e){}
-            doc.text(String(row.vehiculo?.texto || ""), x + 8, y + 4);
-          }else{
-            doc.text(String(row.vehiculo?.texto || ""), x, y + 4);
+          if(data.column.index === colVehiculo){
+            const x = data.cell.x + 2;
+            const y = data.cell.y + 4;
+            if(row.vehiculo?.logo){
+              try{ doc.addImage(row.vehiculo.logo, "PNG", x, y - 2.5, 8, 5); }catch(e){}
+              doc.text(row.vehiculo?.texto || "", x + 10, y + 1.5);
+            }else{
+              doc.text(row.vehiculo?.texto || "", x, y + 1.5);
+            }
           }
         }
+      });
+      startY = doc.lastAutoTable.finalY + 8;
+    }
+
+    if(listaAbandonos.length){
+      if(startY > 260){
+        doc.addPage();
+        startY = 15;
       }
-    });
+      doc.setFontSize(11);
+      doc.text("Abandonos", 14, startY);
+      startY += 3;
+      doc.autoTable({
+        startY,
+        head: [["POS","Nº","Participantes","Vehículo","TC abandono","Fecha guardado"]],
+        body: construirFilasAbandonosPDF(listaAbandonos),
+        styles: { fontSize: 8, cellPadding: 2.5, valign: "middle" },
+        headStyles: { fillColor: [120, 120, 120] },
+        margin: { left: 8, right: 8 }
+      });
+    }
 
     const safe = (titulo || "clasificacion")
-      .replace(/[\\/:*?"<>|]+/g, "_")
+      .replace(/[\/:*?"<>|]+/g, "_")
       .replace(/\s+/g, "_");
     doc.save(`${safe}_${tipo}_${id}.pdf`);
     $("estadoPDF").textContent = "PDF exportado correctamente.";
@@ -2709,33 +2785,53 @@ function mostrarVistaPreviaClasificacion(){
   const cont = document.getElementById("vistaPreviaClasificacion");
   if(!cont) return;
 
-  const filas = [];
-  Object.keys(inscritosCache || {}).forEach(num=>{
-    const d = inscritosCache[num];
-    if(!d || !d.clasificar) return;
-
-    filas.push({
-      dorsal:num,
-      piloto:d.piloto||"",
-      copiloto:d.copiloto||"",
-      vehiculo:d.vehiculo||""
-    });
-  });
-
+  const tipo = $("selectorTipoPDF")?.value || "GENERAL";
+  const filtros = obtenerFiltrosPDF();
   let html = "<h4>Vista previa clasificación</h4>";
-  html += "<table style='width:100%;border-collapse:collapse'>";
-  html += "<tr><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th></tr>";
 
-  filas.forEach(f=>{
-    html += `<tr>
-      <td>${f.dorsal}</td>
-      <td>${f.piloto}</td>
-      <td>${f.copiloto}</td>
-      <td>${f.vehiculo}</td>
-    </tr>`;
-  });
+  if(tipo === "GENERAL"){
+    const lista = calcularGeneralFiltrado(filtros);
+    html += "<table style='width:100%;border-collapse:collapse'>";
+    html += "<tr><th>POS</th><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th><th>Tramos OK</th><th>Total</th></tr>";
+    lista.forEach((f, i)=>{
+      html += `<tr><td>${i+1}</td><td>${f.dorsal}</td><td>${f.piloto||""}</td><td>${f.copiloto||""}</td><td>${f.vehiculo||""}</td><td>${f.tramosOK}</td><td>${f.total}</td></tr>`;
+    });
+    html += "</table>";
 
-  html += "</table>";
+    const abandonos = obtenerListaAbandonosFiltrados(filtros);
+    if(abandonos.length){
+      html += "<h4 style='margin-top:14px;'>Abandonos</h4>";
+      html += "<table style='width:100%;border-collapse:collapse'>";
+      html += "<tr><th>POS</th><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th><th>TC abandono</th><th>Fecha guardado</th></tr>";
+      abandonos.forEach((ab, i)=>{
+        const d = inscritosCache?.[ab.dorsal] || {};
+        html += `<tr><td>${i+1}</td><td>${ab.dorsal||""}</td><td>${d.piloto||""}</td><td>${d.copiloto||""}</td><td>${d.vehiculo||""}</td><td>${ab.tc||""}</td><td>${formatearFechaAbandono(ab.timestamp)}</td></tr>`;
+      });
+      html += "</table>";
+    }
+  } else {
+    const tc = $("selectorTramoPDF")?.value || obtenerListaTCs()[0] || "";
+    const lista = calcularTramoFiltrado(tc, filtros);
+    html += "<table style='width:100%;border-collapse:collapse'>";
+    html += "<tr><th>POS</th><th>TC</th><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th><th>Salida</th><th>Llegada</th><th>Tiempo</th></tr>";
+    lista.forEach((f, i)=>{
+      html += `<tr><td>${i+1}</td><td>${tc}</td><td>${f.dorsal}</td><td>${f.piloto||""}</td><td>${f.copiloto||""}</td><td>${f.vehiculo||""}</td><td>${f.salida||""}</td><td>${f.llegada||""}</td><td>${f.tiempo||""}</td></tr>`;
+    });
+    html += "</table>";
+
+    const abandonos = obtenerListaAbandonosFiltrados(filtros, tc);
+    if(abandonos.length){
+      html += "<h4 style='margin-top:14px;'>Abandonos</h4>";
+      html += "<table style='width:100%;border-collapse:collapse'>";
+      html += "<tr><th>POS</th><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th><th>TC abandono</th><th>Fecha guardado</th></tr>";
+      abandonos.forEach((ab, i)=>{
+        const d = inscritosCache?.[ab.dorsal] || {};
+        html += `<tr><td>${i+1}</td><td>${ab.dorsal||""}</td><td>${d.piloto||""}</td><td>${d.copiloto||""}</td><td>${d.vehiculo||""}</td><td>${ab.tc||""}</td><td>${formatearFechaAbandono(ab.timestamp)}</td></tr>`;
+      });
+      html += "</table>";
+    }
+  }
+
   cont.innerHTML = html;
 }
 

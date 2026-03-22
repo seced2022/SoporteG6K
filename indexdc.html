@@ -525,50 +525,41 @@ function construirPanelVisible(){
   }
 
   const listaCH = construirPanelCH();
-  const mapaTC = {};
-  listaTC.forEach(item => {
-    mapaTC[item.dorsal] = item;
+  const mapaCH = {};
+  listaCH.forEach(item => {
+    mapaCH[item.dorsal] = item;
   });
 
-  const dorsalesEnCH = new Set();
-
-  const primeroCH = listaCH.map(itemCH => {
-    dorsalesEnCH.add(itemCH.dorsal);
-    const itemTC = mapaTC[itemCH.dorsal] || null;
-    const salida = itemTC?.salida || '';
-    const llegada = itemTC?.llegada || '';
-    let estado = 'ch';
-    if(llegada) estado = 'done';
-    else if(salida) estado = 'pending';
-
-    return {
+  const grisSoloCH = listaCH
+    .filter(itemCH => !listaTC.some(itemTC => itemTC.dorsal === itemCH.dorsal))
+    .map(itemCH => ({
       dorsal: itemCH.dorsal,
       ch: itemCH.ch,
       pasoCH: itemCH.pasoCH || '',
       horaMs: itemCH.horaMs ?? null,
-      salida,
-      salidaMs: itemTC?.salidaMs ?? null,
-      llegada,
-      llegadaMs: itemTC?.llegadaMs ?? null,
-      estado
+      salida: '',
+      salidaMs: null,
+      llegada: '',
+      llegadaMs: null,
+      estado: 'ch'
+    }));
+
+  const conSalida = listaTC.map(itemTC => {
+    const itemCH = mapaCH[itemTC.dorsal] || null;
+    return {
+      dorsal: itemTC.dorsal,
+      ch: itemCH?.ch || currentCH,
+      pasoCH: itemCH?.pasoCH || '',
+      horaMs: itemCH?.horaMs ?? null,
+      salida: itemTC.salida || '',
+      salidaMs: itemTC.salidaMs ?? null,
+      llegada: itemTC.llegada || '',
+      llegadaMs: itemTC.llegadaMs ?? null,
+      estado: itemTC.llegada ? 'done' : 'pending'
     };
   });
 
-  const restoTC = listaTC
-    .filter(item => !dorsalesEnCH.has(item.dorsal))
-    .map(item => ({
-      dorsal: item.dorsal,
-      ch: currentCH,
-      pasoCH: '',
-      horaMs: null,
-      salida: item.salida || '',
-      salidaMs: item.salidaMs ?? null,
-      llegada: item.llegada || '',
-      llegadaMs: item.llegadaMs ?? null,
-      estado: item.llegada ? 'done' : 'pending'
-    }));
-
-  return [...primeroCH, ...restoTC];
+  return [...grisSoloCH, ...conSalida];
 }
 
 function pintar(){

@@ -119,11 +119,14 @@
     min-width:0;
   }
   .plate-box, .logo-box {
-    background:rgba(255,255,255,.04);
     border:1px solid rgba(255,255,255,.08);
     border-radius:22px;
     padding:14px;
     min-height:190px;
+  }
+  .plate-box {
+    background:rgba(0,0,0,.34);
+    border-color:rgba(255,255,255,.10);
   }
   .plate-tools {
     display:flex;
@@ -140,11 +143,14 @@
     min-height:132px;
     border-radius:16px;
     border:1px dashed rgba(255,255,255,.15);
-    display:flex;
+    display:none;
     align-items:center;
     justify-content:center;
     overflow:hidden;
-    background:rgba(0,0,0,.18);
+    background:rgba(0,0,0,.42);
+  }
+  .plate-box.has-image .plate-preview {
+    display:flex;
   }
   .plate-preview img {
     display:block;
@@ -162,7 +168,7 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    background:transparent;
+    background:#ffffff;
   }
   .logo-box img {
     max-width:100%;
@@ -239,7 +245,12 @@
     min-height:120px;
     padding:10px;
     border-radius:16px;
-    background:transparent;
+  }
+  body.fullscreen-mode .plate-box {
+    background:rgba(0,0,0,.45);
+  }
+  body.fullscreen-mode .logo-box {
+    background:#ffffff;
   }
   body.fullscreen-mode .plate-tools {
     display:none !important;
@@ -247,7 +258,7 @@
   body.fullscreen-mode .plate-preview {
     min-height:96px;
     border:0;
-    background:#fff;
+    background:transparent;
   }
   body.fullscreen-mode .plate-preview img,
   body.fullscreen-mode .logo-box img {
@@ -481,15 +492,14 @@ function readPlate(key){
 }
 
 function renderPlate(slot, dataUrl){
+  const box = document.querySelectorAll('.plate-box')[slot - 1];
   const preview = $(slot === 1 ? 'preview1' : 'preview2');
   preview.innerHTML = '';
   if(!dataUrl){
-    const empty = document.createElement('div');
-    empty.className = 'plate-empty';
-    empty.textContent = `Sube la placa ${slot} en PNG`;
-    preview.appendChild(empty);
+    box?.classList.remove('has-image');
     return;
   }
+  box?.classList.add('has-image');
   const img = document.createElement('img');
   img.src = dataUrl;
   img.alt = `Placa ${slot}`;

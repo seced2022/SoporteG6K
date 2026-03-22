@@ -175,6 +175,17 @@
     max-height:170px;
     object-fit:contain;
   }
+  
+  .cards-title {
+    margin: 0 0 14px;
+    text-align: center;
+    font-size: clamp(28px, 4vw, 46px);
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    color: #ffffff;
+    text-transform: uppercase;
+  }
+
   .cards-wrap {
     padding:0 22px 24px;
   }
@@ -363,6 +374,7 @@
       </div>
 
       <div class="cards-wrap">
+        <div class="cards-title">ABANDONOS</div>
         <div id="cards" class="cards-grid"></div>
         <div id="empty" class="empty" style="display:none;">No hay abandonos guardados para este ID.</div>
       </div>

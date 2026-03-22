@@ -488,6 +488,9 @@ th,td{
   TC:
   <select id="selectorTC_AB"></select>
 
+  Motivo:
+  <input id="abMotivo" size="28" placeholder="Ej: Avería, accidente, retirada">
+
   <button class="btn" onclick="guardarAbandono()">Señalar abandono</button>
 
   <table id="tablaAbandonos">
@@ -495,6 +498,7 @@ th,td{
       <tr>
         <th>Nº</th>
         <th>TC abandono</th>
+        <th>Motivo</th>
         <th>Fecha guardado</th>
         <th>Acción</th>
       </tr>
@@ -2285,15 +2289,13 @@ function getImagenVehiculo(num){
 
 
 function construirFilasAbandonosPDF(listaAbandonos){
-  return listaAbandonos.map((ab, i)=>{
+  return listaAbandonos.map((ab)=>{
     const d = inscritosCache?.[ab.dorsal] || {};
     return [
-      i + 1,
       ab.dorsal || "",
       `${d.piloto || ""}${d.copiloto ? " / " + d.copiloto : ""}`,
-      d.vehiculo || "",
       ab.tc || "",
-      formatearFechaAbandono(ab.timestamp)
+      ab.motivo || ""
     ];
   });
 }
@@ -2462,7 +2464,7 @@ window.exportarClasificacionPDF = async function(){
       startY += 3;
       doc.autoTable({
         startY,
-        head: [["POS","Nº","Participantes","Vehículo","TC abandono","Fecha guardado"]],
+        head: [["Dorsal","Participantes","TC Abandono","Motivo"]],
         body: construirFilasAbandonosPDF(listaAbandonos),
         styles: { fontSize: 8, cellPadding: 2.5, valign: "middle" },
         headStyles: { fillColor: [120, 120, 120] },
@@ -2673,6 +2675,7 @@ async function guardarAbandono(){
   const id = $("selectorID_AB").value;
   const dorsal = normalizarDorsal($("abDorsal").value);
   const tc = $("selectorTC_AB").value;
+  const motivo = String($("abMotivo")?.value || "").trim();
 
   if(!id){
     alert("No hay ID seleccionado.");
@@ -2691,10 +2694,12 @@ async function guardarAbandono(){
   await set(ref(db, base), {
     dorsal,
     tc,
+    motivo,
     timestamp: Date.now()
   });
 
   $("abDorsal").value = "";
+  $("abMotivo").value = "";
   $("estadoAbandonos").textContent = `Abandono guardado: dorsal ${dorsal} en ${tc}`;
 }
 
@@ -2744,6 +2749,7 @@ function engancharAbandonos(){
       const tr = document.createElement("tr");
       const tdD = document.createElement("td"); tdD.textContent = f?.dorsal || "";
       const tdTC = document.createElement("td"); tdTC.textContent = f?.tc || "";
+      const tdM = document.createElement("td"); tdM.textContent = f?.motivo || "";
       const tdF = document.createElement("td"); tdF.textContent = formatearFechaAbandono(f?.timestamp);
       const tdA = document.createElement("td");
       const btn = document.createElement("button");
@@ -2753,6 +2759,7 @@ function engancharAbandonos(){
       tdA.appendChild(btn);
       tr.appendChild(tdD);
       tr.appendChild(tdTC);
+      tr.appendChild(tdM);
       tr.appendChild(tdF);
       tr.appendChild(tdA);
       tbody.appendChild(tr);
@@ -2802,10 +2809,10 @@ function mostrarVistaPreviaClasificacion(){
     if(abandonos.length){
       html += "<h4 style='margin-top:14px;'>Abandonos</h4>";
       html += "<table style='width:100%;border-collapse:collapse'>";
-      html += "<tr><th>POS</th><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th><th>TC abandono</th><th>Fecha guardado</th></tr>";
-      abandonos.forEach((ab, i)=>{
+      html += "<tr><th>Dorsal</th><th>Participantes</th><th>TC Abandono</th><th>Motivo</th></tr>";
+      abandonos.forEach((ab)=>{
         const d = inscritosCache?.[ab.dorsal] || {};
-        html += `<tr><td>${i+1}</td><td>${ab.dorsal||""}</td><td>${d.piloto||""}</td><td>${d.copiloto||""}</td><td>${d.vehiculo||""}</td><td>${ab.tc||""}</td><td>${formatearFechaAbandono(ab.timestamp)}</td></tr>`;
+        html += `<tr><td>${ab.dorsal||""}</td><td>${d.piloto||""}${d.copiloto ? " / " + d.copiloto : ""}</td><td>${ab.tc||""}</td><td>${ab.motivo||""}</td></tr>`;
       });
       html += "</table>";
     }
@@ -2823,10 +2830,10 @@ function mostrarVistaPreviaClasificacion(){
     if(abandonos.length){
       html += "<h4 style='margin-top:14px;'>Abandonos</h4>";
       html += "<table style='width:100%;border-collapse:collapse'>";
-      html += "<tr><th>POS</th><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th><th>TC abandono</th><th>Fecha guardado</th></tr>";
-      abandonos.forEach((ab, i)=>{
+      html += "<tr><th>Dorsal</th><th>Participantes</th><th>TC Abandono</th><th>Motivo</th></tr>";
+      abandonos.forEach((ab)=>{
         const d = inscritosCache?.[ab.dorsal] || {};
-        html += `<tr><td>${i+1}</td><td>${ab.dorsal||""}</td><td>${d.piloto||""}</td><td>${d.copiloto||""}</td><td>${d.vehiculo||""}</td><td>${ab.tc||""}</td><td>${formatearFechaAbandono(ab.timestamp)}</td></tr>`;
+        html += `<tr><td>${ab.dorsal||""}</td><td>${d.piloto||""}${d.copiloto ? " / " + d.copiloto : ""}</td><td>${ab.tc||""}</td><td>${ab.motivo||""}</td></tr>`;
       });
       html += "</table>";
     }

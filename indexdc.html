@@ -20,6 +20,8 @@
     --green-card-border:#dfffe1;
     --gray-card:#d9dee3;
     --gray-card-border:#f4f6f8;
+    --red-card:#ffd7d7;
+    --red-card-border:#ff4d4f;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -123,6 +125,7 @@
   .dot.blue{background:var(--blue-card); border:1px solid var(--blue-card-border)}
   .dot.green{background:var(--green-card); border:1px solid var(--green-card-border)}
   .dot.gray{background:var(--gray-card); border:1px solid #ffffff}
+  .dot.red{background:var(--red-card); border:1px solid var(--red-card-border)}
   .cards{
     display:grid;
     grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
@@ -154,6 +157,12 @@
     background:linear-gradient(180deg, rgba(217,222,227,.96), rgba(197,205,213,.94));
     color:#182029;
     border-color:var(--gray-card-border);
+  }
+  .card.abandono{
+    background:linear-gradient(180deg, rgba(255,215,215,.96), rgba(255,238,238,.94));
+    color:#4a0f10;
+    border-color:var(--red-card-border);
+    box-shadow:0 10px 18px rgba(0,0,0,.22), inset 0 0 0 2px rgba(255,77,79,.28);
   }
   .dorsal{font-size:42px; font-weight:900; line-height:1}
   .status{font-size:14px; font-weight:800; margin-top:10px}
@@ -316,6 +325,7 @@
         <div class="pill"><span class="dot blue"></span> Tiene salida y aún no llegada</div>
         <div class="pill"><span class="dot green"></span> Tiene salida y llegada</div>
         <div class="pill"><span class="dot gray"></span> Tiene paso por CH</div>
+        <div class="pill"><span class="dot red"></span> Abandono señalado</div>
       </div>
 
       <div id="estado" class="muted"></div>
@@ -349,7 +359,9 @@ let currentID = "";
 let currentTC = "";
 let currentCH = "TODOS";
 let tramosListenerOff = null;
+let abandonosListenerOff = null;
 let tramosActuales = {};
+let abandonosActuales = {};
 
 function extraerNumero(clave){
   return parseInt(String(clave || '').replace(/\D+/g, '') || '0', 10);
@@ -385,6 +397,7 @@ function cargarIDs(){
     currentID = sel.value || '';
     cargarTCs();
     engancharTramos();
+    engancharAbandonos();
   });
 }
 
@@ -439,6 +452,30 @@ function engancharTramos(){
     cargarCHs();
     pintar();
   });
+}
+
+function engancharAbandonos(){
+  if(abandonosListenerOff) abandonosListenerOff();
+  if(!currentID){
+    abandonosActuales = {};
+    pintar();
+    return;
+  }
+  abandonosListenerOff = onValue(ref(db, `IDs/${currentID}/abandonos`), snap => {
+    abandonosActuales = snap.val() || {};
+    pintar();
+  });
+}
+
+function obtenerAbandonoDorsal(dorsal){
+  const mapa = abandonosActuales || {};
+  const directo = mapa?.[String(dorsal)] || mapa?.[String(+dorsal)] || null;
+  if(directo && typeof directo === 'object') return directo;
+
+  for(const val of Object.values(mapa)){
+    if(val && typeof val === 'object' && String(val.dorsal ?? '').trim() === String(dorsal)) return val;
+  }
+  return null;
 }
 
 function construirPanelDorsales(){
@@ -518,10 +555,14 @@ function construirPanelCH(){
 function construirPanelVisible(){
   const listaTC = construirPanelDorsales();
   if(!currentCH || currentCH === 'TODOS'){
-    return listaTC.map(item => ({
-      ...item,
-      estado: item.llegada ? 'done' : 'pending'
-    }));
+    return listaTC.map(item => {
+      const abandono = obtenerAbandonoDorsal(item.dorsal);
+      return {
+        ...item,
+        abandono: abandono || null,
+        estado: abandono ? 'abandono' : (item.llegada ? 'done' : 'pending')
+      };
+    });
   }
 
   const listaCH = construirPanelCH();
@@ -532,20 +573,25 @@ function construirPanelVisible(){
 
   const grisSoloCH = listaCH
     .filter(itemCH => !listaTC.some(itemTC => itemTC.dorsal === itemCH.dorsal))
-    .map(itemCH => ({
-      dorsal: itemCH.dorsal,
-      ch: itemCH.ch,
-      pasoCH: itemCH.pasoCH || '',
-      horaMs: itemCH.horaMs ?? null,
-      salida: '',
-      salidaMs: null,
-      llegada: '',
-      llegadaMs: null,
-      estado: 'ch'
-    }));
+    .map(itemCH => {
+      const abandono = obtenerAbandonoDorsal(itemCH.dorsal);
+      return {
+        dorsal: itemCH.dorsal,
+        ch: itemCH.ch,
+        pasoCH: itemCH.pasoCH || '',
+        horaMs: itemCH.horaMs ?? null,
+        salida: '',
+        salidaMs: null,
+        llegada: '',
+        llegadaMs: null,
+        abandono: abandono || null,
+        estado: abandono ? 'abandono' : 'ch'
+      };
+    });
 
   const conSalida = listaTC.map(itemTC => {
     const itemCH = mapaCH[itemTC.dorsal] || null;
+    const abandono = obtenerAbandonoDorsal(itemTC.dorsal);
     return {
       dorsal: itemTC.dorsal,
       ch: itemCH?.ch || currentCH,
@@ -555,7 +601,8 @@ function construirPanelVisible(){
       salidaMs: itemTC.salidaMs ?? null,
       llegada: itemTC.llegada || '',
       llegadaMs: itemTC.llegadaMs ?? null,
-      estado: itemTC.llegada ? 'done' : 'pending'
+      abandono: abandono || null,
+      estado: abandono ? 'abandono' : (itemTC.llegada ? 'done' : 'pending')
     };
   });
 
@@ -607,13 +654,17 @@ function pintar(){
     card.className = 'card ' + item.estado;
 
     let status = 'EN TRAMO';
-    if(item.estado === 'done') status = 'LLEGADA OK';
+    if(item.estado === 'abandono') status = 'ABANDONO';
+    else if(item.estado === 'done') status = 'LLEGADA OK';
     else if(item.estado === 'ch') status = item.ch || 'CH';
 
     const lineas = [];
     if(currentCH && currentCH !== 'TODOS') lineas.push(`Paso ${item.ch || currentCH}: ${item.pasoCH || '—'}`);
     lineas.push(`S: ${item.salida || '—'}`);
     lineas.push(`LL: ${item.llegada || '—'}`);
+    if(item.abandono){
+      lineas.push(`Abandono: ${item.abandono?.tc || item.abandono?.TC || '—'}`);
+    }
 
     card.innerHTML = `
       <div class="dorsal">${item.dorsal}</div>
@@ -628,6 +679,7 @@ $('selectorID').addEventListener('change', () => {
   currentID = $('selectorID').value || '';
   cargarTCs();
   engancharTramos();
+  engancharAbandonos();
 });
 
 $('selectorTC').addEventListener('change', () => {

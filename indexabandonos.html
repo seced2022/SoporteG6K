@@ -125,9 +125,6 @@
     padding:14px;
     min-height:190px;
   }
-  .plate-box.hidden-empty {
-    display:none;
-  }
   .plate-tools {
     display:flex;
     gap:10px;
@@ -165,7 +162,7 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    background:#ffffff;
+    background:transparent;
   }
   .logo-box img {
     max-width:100%;
@@ -174,17 +171,6 @@
   }
   .cards-wrap {
     padding:0 22px 24px;
-  }
-  .cards-title {
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    margin:0 0 14px;
-    font-size:34px;
-    font-weight:900;
-    letter-spacing:.12em;
-    color:#ffffff;
-    text-transform:uppercase;
   }
   .cards-grid {
     display:grid;
@@ -198,12 +184,12 @@
     justify-content:center;
     border-radius:18px;
     font-size:34px;
-    font-weight:900;
+    font-weight:800;
     letter-spacing:.02em;
-    background:linear-gradient(180deg,#c92b2b,#8e1414);
-    border:3px solid #ff7b7b;
-    color:#ffffff;
-    box-shadow:0 12px 22px rgba(0,0,0,.22);
+    background:var(--danger-soft);
+    border:3px solid var(--danger-border);
+    color:#7b1111;
+    box-shadow:0 12px 22px rgba(0,0,0,.18);
   }
   .empty {
     padding:40px 18px;
@@ -253,7 +239,7 @@
     min-height:120px;
     padding:10px;
     border-radius:16px;
-    background:#ffffff;
+    background:transparent;
   }
   body.fullscreen-mode .plate-tools {
     display:none !important;
@@ -271,10 +257,6 @@
     padding:8px 18px 18px;
     height:calc(100vh - 170px);
     overflow:auto;
-  }
-  body.fullscreen-mode .cards-title {
-    margin:0 0 16px;
-    font-size:42px;
   }
   body.fullscreen-mode .cards-grid {
     grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
@@ -315,7 +297,7 @@
     <div class="panel">
       <div class="header">
         <div class="title">
-          <h1>Panel de abandonos</h1>
+          <h1>ABANDONOS</h1>
           <p>Selecciona un ID y el panel mostrará automáticamente los dorsales marcados como abandono en la base de datos. Las placas se pueden cargar en PNG y el modo pantalla completa deja solo las placas, el logo y los recuadros con dorsal.</p>
         </div>
       </div>
@@ -370,7 +352,6 @@
       </div>
 
       <div class="cards-wrap">
-        <div class="cards-title">ABANDONOS</div>
         <div id="cards" class="cards-grid"></div>
         <div id="empty" class="empty" style="display:none;">No hay abandonos guardados para este ID.</div>
       </div>
@@ -501,13 +482,14 @@ function readPlate(key){
 
 function renderPlate(slot, dataUrl){
   const preview = $(slot === 1 ? 'preview1' : 'preview2');
-  const box = preview.closest('.plate-box');
   preview.innerHTML = '';
   if(!dataUrl){
-    box.classList.add('hidden-empty');
+    const empty = document.createElement('div');
+    empty.className = 'plate-empty';
+    empty.textContent = `Sube la placa ${slot} en PNG`;
+    preview.appendChild(empty);
     return;
   }
-  box.classList.remove('hidden-empty');
   const img = document.createElement('img');
   img.src = dataUrl;
   img.alt = `Placa ${slot}`;

@@ -327,6 +327,7 @@ th,td{
   <button class="btn" onclick="mostrarPanel('inscritos')">Inscritos</button>
   <button class="btn" onclick="mostrarPanel('tiempos')">Tiempos</button>
   <button class="btn" onclick="mostrarPanel('ch')">CH</button>
+  <button class="btn" onclick="mostrarPanel('abandonos')">Abandonos</button>
   <button class="btn" onclick="mostrarPanel('clasificaciones')">Clasificaciones</button>
 </div>
 
@@ -472,6 +473,36 @@ th,td{
   </table>
 
   <div id="estadoCH" class="small"></div>
+</div>
+
+<!-- ================= ABANDONOS ================= -->
+<div id="abandonos" class="panel">
+  <h3>Abandonos</h3>
+
+  ID:
+  <select id="selectorID_AB"></select>
+
+  Dorsal:
+  <input id="abDorsal" size="6" placeholder="Ej: 12">
+
+  TC:
+  <select id="selectorTC_AB"></select>
+
+  <button class="btn" onclick="guardarAbandono()">Señalar abandono</button>
+
+  <table id="tablaAbandonos">
+    <thead>
+      <tr>
+        <th>Nº</th>
+        <th>TC abandono</th>
+        <th>Fecha guardado</th>
+        <th>Acción</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div id="estadoAbandonos" class="small"></div>
 </div>
 
 
@@ -854,33 +885,39 @@ onValue(ref(db,"IDs"), snap=>{
   const selT = $("selectorID");
   const selI = $("idInscritos");
   const selCH_ID = $("selectorID_CH");
+  const selAB_ID = $("selectorID_AB");
   const selPDF = $("selectorID_PDF");
 
   const prevT = selT.value;
   const prevI = selI.value;
   const prevCH = selCH_ID.value;
+  const prevAB = selAB_ID.value;
   const prevPDF = selPDF.value;
 
   selT.innerHTML="";
   selI.innerHTML="";
   selCH_ID.innerHTML="";
+  selAB_ID.innerHTML="";
   selPDF.innerHTML="";
 
   ids.forEach(id=>{
     selT.innerHTML += `<option>${id}</option>`;
     selI.innerHTML += `<option>${id}</option>`;
     selCH_ID.innerHTML += `<option>${id}</option>`;
+    selAB_ID.innerHTML += `<option>${id}</option>`;
     selPDF.innerHTML += `<option>${id}</option>`;
   });
 
   if(prevT && ids.includes(prevT)) selT.value = prevT;
   if(prevI && ids.includes(prevI)) selI.value = prevI;
   if(prevCH && ids.includes(prevCH)) selCH_ID.value = prevCH;
+  if(prevAB && ids.includes(prevAB)) selAB_ID.value = prevAB;
   if(prevPDF && ids.includes(prevPDF)) selPDF.value = prevPDF;
 
   if(!selT.value && ids.length) selT.value = ids[0];
   if(!selI.value && ids.length) selI.value = ids[0];
   if(!selCH_ID.value && ids.length) selCH_ID.value = ids[0];
+  if(!selAB_ID.value && ids.length) selAB_ID.value = ids[0];
   if(!selPDF.value && ids.length) selPDF.value = ids[0];
 
   if(selT.value && selT.value !== currentID){
@@ -896,12 +933,15 @@ onValue(ref(db,"IDs"), snap=>{
   rellenarSelectImagenes();
   actualizarFiltrosPDF();
   pintarCH();
+  engancharTramosSoloParaAbandonos(selAB_ID.value);
+  pintarAbandonos();
 });
 
 $("selectorID").addEventListener("change", ()=>{
   currentID = $("selectorID").value;
   selectedTCs.clear();
   engancharLecturasDeID(currentID);
+  if($("selectorID_AB").value === currentID) engancharTramosSoloParaAbandonos(currentID);
 });
 
 $("idInscritos").addEventListener("change", ()=>{
@@ -2367,6 +2407,9 @@ window.exportarClasificacionPDF = async function(){
 
 /* ===================== CH ===================== */
 let tramosCHCache = {};
+let tramosABCache = {};
+let offAbandonos = null;
+let offTramosAB = null;
 
 function engancharTramosSoloParaCH(id){
   onValue(ref(db, `IDs/${id}/tramos`), snap=>{
@@ -2421,6 +2464,11 @@ Solo números (ej: 12)`, sugerido);
 
 $("selectorID_CH").addEventListener("change", ()=>{
   engancharTramosSoloParaCH($("selectorID_CH").value);
+});
+
+$("selectorID_AB").addEventListener("change", ()=>{
+  engancharTramosSoloParaAbandonos($("selectorID_AB").value);
+  engancharAbandonos();
 });
 
 $("selectorCH").addEventListener("change", ()=>{
@@ -2509,11 +2557,150 @@ function pintarCH(){
   $("estadoCH").textContent = `ID ${id} · Registros CH: ${filas.length}`;
 }
 
+function cargarSelectorTCAbandonos(){
+  const sel = $("selectorTC_AB");
+  if(!sel) return;
+
+  const prev = sel.value;
+  const tramos = tramosABCache || {};
+
+  const tcs = Object.keys(tramos)
+    .filter(k => k !== "TC0")
+    .sort((a,b)=>{
+      const na = parseInt(a.replace(/\D+/g,"")||"0",10);
+      const nb = parseInt(b.replace(/\D+/g,"")||"0",10);
+      return na - nb;
+    });
+
+  sel.innerHTML = tcs.map(tc => `<option value="${tc}">${tc}</option>`).join("");
+  if(prev && tcs.includes(prev)) sel.value = prev;
+  if(!sel.value && tcs.length) sel.value = tcs[0];
+}
+
+function engancharTramosSoloParaAbandonos(id){
+  if(offTramosAB) offTramosAB();
+  tramosABCache = {};
+
+  if(!id){
+    cargarSelectorTCAbandonos();
+    return;
+  }
+
+  offTramosAB = onValue(ref(db, `IDs/${id}/tramos`), snap=>{
+    tramosABCache = snap.val() || {};
+    cargarSelectorTCAbandonos();
+  });
+}
+
+async function guardarAbandono(){
+
+  const id = $("selectorID_AB").value;
+  const dorsal = normalizarDorsal($("abDorsal").value);
+  const tc = $("selectorTC_AB").value;
+
+  if(!id){
+    alert("No hay ID seleccionado.");
+    return;
+  }
+  if(!esDorsalValidoSoloNumeros(dorsal)){
+    alert("Dorsal inválido. Debe ser SOLO números.");
+    return;
+  }
+  if(!tc){
+    alert("Selecciona un TC.");
+    return;
+  }
+
+  const base = `IDs/${id}/abandonos/${dorsal}`;
+  await set(ref(db, base), {
+    dorsal,
+    tc,
+    timestamp: Date.now()
+  });
+
+  $("abDorsal").value = "";
+  $("estadoAbandonos").textContent = `Abandono guardado: dorsal ${dorsal} en ${tc}`;
+}
+
+async function eliminarAbandono(dorsal){
+  const id = $("selectorID_AB").value;
+  if(!id || !dorsal) return;
+  const ok = confirm(`¿Eliminar abandono del dorsal ${dorsal}?`);
+  if(!ok) return;
+  await remove(ref(db, `IDs/${id}/abandonos/${dorsal}`));
+}
+
+function formatearFechaAbandono(ts){
+  if(!ts) return "";
+  const d = new Date(ts);
+  if(Number.isNaN(d.getTime())) return "";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth()+1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
+}
+
+function pintarAbandonos(){
+  engancharAbandonos();
+}
+
+function engancharAbandonos(){
+  const id = $("selectorID_AB").value;
+  const tbody = $("tablaAbandonos").querySelector("tbody");
+  tbody.innerHTML = "";
+
+  if(offAbandonos) offAbandonos();
+
+  if(!id){
+    $("estadoAbandonos").textContent = "No hay ID seleccionado.";
+    return;
+  }
+
+  offAbandonos = onValue(ref(db, `IDs/${id}/abandonos`), snap=>{
+    const data = snap.val() || {};
+    tbody.innerHTML = "";
+    const filas = Object.values(data).sort((a,b)=>(b?.timestamp||0)-(a?.timestamp||0));
+
+    filas.forEach(f=>{
+      const tr = document.createElement("tr");
+      const tdD = document.createElement("td"); tdD.textContent = f?.dorsal || "";
+      const tdTC = document.createElement("td"); tdTC.textContent = f?.tc || "";
+      const tdF = document.createElement("td"); tdF.textContent = formatearFechaAbandono(f?.timestamp);
+      const tdA = document.createElement("td");
+      const btn = document.createElement("button");
+      btn.className = "btn";
+      btn.textContent = "Quitar";
+      btn.onclick = ()=> eliminarAbandono(f?.dorsal || "");
+      tdA.appendChild(btn);
+      tr.appendChild(tdD);
+      tr.appendChild(tdTC);
+      tr.appendChild(tdF);
+      tr.appendChild(tdA);
+      tbody.appendChild(tr);
+    });
+
+    $("estadoAbandonos").textContent = `ID ${id} · Abandonos: ${filas.length}`;
+  });
+}
+
 function initCH(){
+
   const id = $("selectorID_CH").value;
   if(id) engancharTramosSoloParaCH(id);
 }
 setTimeout(initCH, 500);
+
+window.guardarAbandono = guardarAbandono;
+window.eliminarAbandono = eliminarAbandono;
+
+function initAbandonos(){
+  engancharTramosSoloParaAbandonos($("selectorID_AB").value);
+  engancharAbandonos();
+}
+setTimeout(initAbandonos, 600);
 
 rellenarSelectImagenes();
 mostrarPanel("tiempos");

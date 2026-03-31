@@ -578,6 +578,31 @@ th,td{
 
   <button class="btn" onclick="mostrarVistaPreviaClasificacion()">Vista previa</button>
   <button class="btn" onclick="exportarClasificacionPDF()">Exportar PDF</button>
+
+  <div style="margin-top:14px; padding:12px; border:1px solid #333; border-radius:8px; background:#151515;">
+    <h4 style="margin:0 0 10px 0;">Publicación JSON online</h4>
+    <div style="margin-bottom:10px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+      <div style="flex:1; min-width:320px;">
+        URL publicación:
+        <input id="jsonPublishUrl" style="width:100%; min-width:320px" placeholder="Ej: https://tuweb.com/api/subir-clasificacion.php">
+      </div>
+      <div>
+        Intervalo (s):
+        <input id="jsonPublishInterval" type="number" min="5" step="1" value="15" style="width:90px;">
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; padding-bottom:6px;">
+        <input id="jsonAutoPublish" type="checkbox">
+        <label for="jsonAutoPublish">Auto publicar</label>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn" onclick="descargarClasificacionJSON()">Descargar JSON</button>
+      <button class="btn" onclick="publicarClasificacionJSON()">Publicar JSON</button>
+    </div>
+    <div id="estadoJSON" class="small" style="margin-top:8px;"></div>
+  </div>
+
   <div id="estadoPDF" class="small" style="margin-top:8px;"></div>
 </div>
 
@@ -2843,6 +2868,233 @@ function mostrarVistaPreviaClasificacion(){
 
   cont.innerHTML = html;
 }
+
+
+let jsonPublishTimer = null;
+let ultimoJsonPublicado = "";
+
+function obtenerConfigJSONPublicacion(){
+  return {
+    url: $("jsonPublishUrl")?.value.trim() || "",
+    intervaloSeg: Math.max(5, Number($("jsonPublishInterval")?.value || 15) || 15),
+    auto: !!$("jsonAutoPublish")?.checked
+  };
+}
+
+function guardarConfigJSONPublicacion(){
+  try{
+    const cfg = obtenerConfigJSONPublicacion();
+    localStorage.setItem("rally_json_publish_url", cfg.url);
+    localStorage.setItem("rally_json_publish_interval", String(cfg.intervaloSeg));
+    localStorage.setItem("rally_json_publish_auto", cfg.auto ? "1" : "0");
+  }catch(e){}
+}
+
+function cargarConfigJSONPublicacion(){
+  try{
+    const url = localStorage.getItem("rally_json_publish_url") || "";
+    const intervalo = localStorage.getItem("rally_json_publish_interval") || "15";
+    const auto = localStorage.getItem("rally_json_publish_auto") === "1";
+    if($("jsonPublishUrl")) $("jsonPublishUrl").value = url;
+    if($("jsonPublishInterval")) $("jsonPublishInterval").value = intervalo;
+    if($("jsonAutoPublish")) $("jsonAutoPublish").checked = auto;
+  }catch(e){}
+}
+
+function construirNombreArchivoJSON(datos){
+  const base = (datos?.id || currentID || "clasificacion").replace(/[^a-z0-9_-]+/gi, "_");
+  const tipo = (datos?.tipo || "general").replace(/[^a-z0-9_-]+/gi, "_").toLowerCase();
+  return `${base}_${tipo}.json`;
+}
+
+function construirClasificacionPublicaJSON(){
+  const id = $("selectorID_PDF")?.value || currentID || $("selectorID")?.value || "";
+  const tipo = $("selectorTipoPDF")?.value || "GENERAL";
+  const filtros = obtenerFiltrosPDF ? obtenerFiltrosPDF() : {};
+  const actualizadoIso = new Date().toISOString();
+  const actualizadoLocal = new Date().toLocaleString("es-ES");
+
+  const base = {
+    actualizadoIso,
+    actualizadoLocal,
+    id,
+    tipo,
+    filtros,
+    inscritos: Object.keys(inscritosCache || {}).length
+  };
+
+  if(tipo === "GENERAL"){
+    const lista = calcularGeneralFiltrado(filtros);
+    const abandonos = obtenerListaAbandonosFiltrados(filtros);
+    return {
+      ...base,
+      clasificacion_general: lista.map((f, i)=>(
+        {
+          pos: i + 1,
+          dorsal: f.dorsal || "",
+          piloto: f.piloto || "",
+          copiloto: f.copiloto || "",
+          vehiculo: f.vehiculo || "",
+          grupo: f.grupo || "",
+          copa: f.copa || "",
+          agrupacion: f.agrupacion || "",
+          clase: f.clase || "",
+          categoria: f.categoria || "",
+          tramosOK: f.tramosOK || 0,
+          totalMs: f.totalMs || 0,
+          total: f.total || ""
+        }
+      )),
+      abandonos: abandonos.map((ab)=>{
+        const d = inscritosCache?.[ab.dorsal] || {};
+        return {
+          dorsal: ab.dorsal || "",
+          piloto: d.piloto || "",
+          copiloto: d.copiloto || "",
+          vehiculo: d.vehiculo || "",
+          tc: ab.tc || "",
+          motivo: ab.motivo || "",
+          timestamp: ab.timestamp || ""
+        };
+      })
+    };
+  }
+
+  const tc = $("selectorTramoPDF")?.value || obtenerListaTCs()[0] || "";
+  const lista = calcularTramoFiltrado(tc, filtros);
+  const abandonos = obtenerListaAbandonosFiltrados(filtros, tc);
+  return {
+    ...base,
+    tc,
+    clasificacion_tc: lista.map((f, i)=>(
+      {
+        pos: i + 1,
+        tc,
+        dorsal: f.dorsal || "",
+        piloto: f.piloto || "",
+        copiloto: f.copiloto || "",
+        vehiculo: f.vehiculo || "",
+        salida: f.salida || "",
+        llegada: f.llegada || "",
+        tiempoMs: f.tiempoMs ?? null,
+        tiempo: f.tiempo || ""
+      }
+    )),
+    abandonos: abandonos.map((ab)=>{
+      const d = inscritosCache?.[ab.dorsal] || {};
+      return {
+        dorsal: ab.dorsal || "",
+        piloto: d.piloto || "",
+        copiloto: d.copiloto || "",
+        vehiculo: d.vehiculo || "",
+        tc: ab.tc || "",
+        motivo: ab.motivo || "",
+        timestamp: ab.timestamp || ""
+      };
+    })
+  };
+}
+
+function actualizarEstadoJSON(msg, ok = true){
+  const el = $("estadoJSON");
+  if(!el) return;
+  el.textContent = msg;
+  el.className = `small ${ok ? "ok" : "err"}`;
+}
+
+window.descargarClasificacionJSON = function(){
+  try{
+    const datos = construirClasificacionPublicaJSON();
+    const blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = construirNombreArchivoJSON(datos);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    actualizarEstadoJSON(`JSON generado: ${a.download}`);
+  }catch(e){
+    console.error(e);
+    actualizarEstadoJSON("Error generando el JSON de clasificación.", false);
+  }
+};
+
+async function publicarClasificacionJSONInterno({forzar = false, silencioso = false} = {}){
+  const cfg = obtenerConfigJSONPublicacion();
+  guardarConfigJSONPublicacion();
+
+  if(!cfg.url){
+    if(!silencioso) actualizarEstadoJSON("Indica la URL donde se publicará el JSON.", false);
+    return false;
+  }
+
+  try{
+    const datos = construirClasificacionPublicaJSON();
+    const payload = JSON.stringify(datos, null, 2);
+
+    if(!forzar && payload === ultimoJsonPublicado){
+      if(!silencioso) actualizarEstadoJSON("Sin cambios en la clasificación. No se publica de nuevo.");
+      return false;
+    }
+
+    const res = await fetch(cfg.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload
+    });
+
+    if(!res.ok){
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    ultimoJsonPublicado = payload;
+    actualizarEstadoJSON(`JSON publicado correctamente · ${datos.actualizadoLocal}`);
+    return true;
+  }catch(e){
+    console.error(e);
+    if(!silencioso) actualizarEstadoJSON(`Error publicando JSON: ${e.message || e}`, false);
+    return false;
+  }
+}
+
+window.publicarClasificacionJSON = async function(){
+  await publicarClasificacionJSONInterno({forzar:true, silencioso:false});
+};
+
+function reiniciarAutoPublicacionJSON(){
+  if(jsonPublishTimer){
+    clearInterval(jsonPublishTimer);
+    jsonPublishTimer = null;
+  }
+
+  const cfg = obtenerConfigJSONPublicacion();
+  guardarConfigJSONPublicacion();
+
+  if(!cfg.auto) return;
+
+  jsonPublishTimer = setInterval(()=>{
+    publicarClasificacionJSONInterno({forzar:false, silencioso:true});
+  }, cfg.intervaloSeg * 1000);
+
+  actualizarEstadoJSON(`Auto publicación activa cada ${cfg.intervaloSeg}s.`);
+}
+
+function initPublicacionJSON(){
+  cargarConfigJSONPublicacion();
+  ["jsonPublishUrl","jsonPublishInterval","jsonAutoPublish"].forEach(id=>{
+    const el = $(id);
+    if(!el) return;
+    const evento = (id === "jsonAutoPublish") ? "change" : "input";
+    el.addEventListener(evento, ()=>{
+      reiniciarAutoPublicacionJSON();
+    });
+  });
+  reiniciarAutoPublicacionJSON();
+}
+
+initPublicacionJSON();
 
 </script>
 

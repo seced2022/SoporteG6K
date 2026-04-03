@@ -3021,6 +3021,60 @@ window.descargarClasificacionJSON = function(){
   }
 };
 
+function enviarJSONPorFormulario(url, payload){
+  return new Promise((resolve, reject)=>{
+    try{
+      let iframe = $("jsonPublishFrame");
+      if(!iframe){
+        iframe = document.createElement("iframe");
+        iframe.id = "jsonPublishFrame";
+        iframe.name = "jsonPublishFrame";
+        iframe.style.display = "none";
+        document.body.appendChild(iframe);
+      }
+
+      const previo = $("jsonPublishForm");
+      if(previo) previo.remove();
+
+      const form = document.createElement("form");
+      form.id = "jsonPublishForm";
+      form.method = "POST";
+      form.action = url;
+      form.target = "jsonPublishFrame";
+      form.style.display = "none";
+
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "json";
+      input.value = payload;
+
+      form.appendChild(input);
+      document.body.appendChild(form);
+
+      const limpiar = ()=>{
+        iframe.removeEventListener("load", onLoad);
+        form.remove();
+      };
+
+      const timeout = setTimeout(()=>{
+        limpiar();
+        reject(new Error("Tiempo de espera agotado al publicar"));
+      }, 15000);
+
+      const onLoad = ()=>{
+        clearTimeout(timeout);
+        limpiar();
+        resolve(true);
+      };
+
+      iframe.addEventListener("load", onLoad, { once:true });
+      form.submit();
+    }catch(e){
+      reject(e);
+    }
+  });
+}
+
 async function publicarClasificacionJSONInterno({forzar = false, silencioso = false} = {}){
   const cfg = obtenerConfigJSONPublicacion();
   guardarConfigJSONPublicacion();
@@ -3039,15 +3093,7 @@ async function publicarClasificacionJSONInterno({forzar = false, silencioso = fa
       return false;
     }
 
-    const res = await fetch(cfg.url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: payload
-    });
-
-    if(!res.ok){
-      throw new Error(`HTTP ${res.status}`);
-    }
+    await enviarJSONPorFormulario(cfg.url, payload);
 
     ultimoJsonPublicado = payload;
     actualizarEstadoJSON(`JSON publicado correctamente · ${datos.actualizadoLocal}`);

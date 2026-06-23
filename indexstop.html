@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heidegger Race · STOP</title>
+<style>
+  :root{
+    --bg:#0a0f0a;
+    --panel:#111811;
+    --panel-2:#162016;
+    --line:#335533;
+    --text:#f2f7f2;
+    --muted:#a9b5a9;
+    --green:#7cff6b;
+    --green-2:#3da83d;
+    --yellow:#ffe66b;
+    --red:#ff2e2e;
+    --red-soft:#ffd7d7;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    background:radial-gradient(circle at top, #132013 0%, var(--bg) 48%, #050805 100%);
+    color:var(--text);
+  }
+  .wrap{max-width:1450px;margin:0 auto;padding:26px 18px 92px}
+  .hero{
+    padding:18px 20px;
+    border:1px solid var(--line);
+    border-radius:22px;
+    background:linear-gradient(180deg, rgba(31,51,31,.95), rgba(14,21,14,.96));
+    box-shadow:0 12px 34px rgba(0,0,0,.25), inset 0 0 0 1px rgba(124,255,107,.08);
+    margin-bottom:18px;
+  }
+  .hero h1{margin:0 0 8px;font-size:32px;color:#dfffd8;letter-spacing:.3px}
+  .hero p{margin:0;color:var(--muted);line-height:1.45}
+  .panel{
+    border:1px solid var(--line);
+    border-radius:22px;
+    background:linear-gradient(180deg, rgba(23,32,23,.98), rgba(11,16,11,.98));
+    padding:18px;
+    box-shadow:0 10px 28px rgba(0,0,0,.25);
+    margin-bottom:18px;
+  }
+  .controls{display:grid;grid-template-columns:repeat(4,minmax(170px,1fr));gap:12px;align-items:end}
+  .field label{display:block;font-weight:800;margin-bottom:6px;color:#dfffd8}
+  select,button{font:inherit}
+  select{
+    width:100%;padding:13px 14px;border-radius:14px;border:1px solid #587158;
+    background:#0f160f;color:var(--text);outline:none;
+  }
+  .btn{
+    min-height:50px;border:none;border-radius:18px;padding:0 18px;cursor:pointer;
+    color:#efffeb;font-weight:900;letter-spacing:.2px;
+    background:linear-gradient(180deg, rgba(157,255,120,.25), rgba(65,130,44,.18)),linear-gradient(180deg,#151a15,#090b09 70%);
+    box-shadow:inset 0 0 0 2px rgba(140,255,110,.55), inset 0 0 18px rgba(106,255,73,.18), 0 10px 18px rgba(0,0,0,.25);
+    text-shadow:0 0 8px rgba(124,255,107,.35);
+  }
+  .btn:hover{transform:translateY(-1px)}
+  .summary{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px;margin-top:16px}
+  .stat{background:linear-gradient(180deg,#172217,#101610);border:1px solid #405740;border-radius:18px;padding:14px}
+  .stat .k{display:block;color:var(--muted);font-size:12px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px}
+  .stat .v{font-size:28px;font-weight:900}
+  .section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+  .section-title h2{margin:0;color:#e9ffe4;font-size:24px}
+  .muted{color:var(--muted)}
+  .latest-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px}
+  .arrival-card{
+    position:relative;
+    border-radius:24px;
+    padding:20px;
+    min-height:210px;
+    background:linear-gradient(180deg, rgba(255,230,107,.98), rgba(255,196,55,.96));
+    color:#221900;
+    border:3px solid #fff2a8;
+    box-shadow:0 18px 30px rgba(0,0,0,.34), inset 0 0 0 2px rgba(255,255,255,.35);
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+  }
+  .arrival-card.first{
+    border-color:#ffffff;
+    box-shadow:0 0 0 4px rgba(255,230,107,.25), 0 24px 42px rgba(0,0,0,.42), inset 0 0 0 2px rgba(255,255,255,.35);
+  }
+  .arrival-card .topline{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .arrival-card .label{font-size:13px;font-weight:900;letter-spacing:.8px;text-transform:uppercase;opacity:.85}
+  .dorsal{font-size:76px;font-weight:1000;line-height:.9;margin-top:8px}
+  .times{font-size:18px;line-height:1.55;font-weight:800;margin-top:12px}
+  .stage-time{font-size:34px;font-weight:1000;line-height:1.05;margin-top:8px}
+  .ok-btn{
+    margin-top:16px;width:100%;min-height:58px;border:0;border-radius:18px;cursor:pointer;
+    background:#092209;color:#dfffd8;font-size:22px;font-weight:1000;box-shadow:0 8px 16px rgba(0,0,0,.28);
+  }
+  .ok-btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+  .sr-badge{
+    display:inline-flex;align-items:center;justify-content:center;
+    background:var(--red);color:#fff;border:2px solid #fff;border-radius:999px;
+    padding:6px 12px;font-weight:1000;font-size:18px;letter-spacing:.8px;
+    box-shadow:0 8px 14px rgba(0,0,0,.25);
+  }
+  .mini-note{font-size:13px;color:#4d3800;font-weight:800;margin-top:6px}
+  .list{display:flex;flex-direction:column;gap:10px}
+  .row{
+    display:grid;grid-template-columns:80px 1fr 1fr 1fr 120px;gap:10px;align-items:center;
+    background:linear-gradient(180deg,#172217,#101610);border:1px solid #405740;border-radius:16px;padding:12px;
+  }
+  .row .num{font-size:30px;font-weight:1000;color:#e9ffe4}
+  .row .cell{font-size:14px;line-height:1.35}
+  .row .big{font-size:19px;font-weight:900;color:#fff}
+  .row .ok{color:#b7ffb7;font-weight:900;text-align:right}
+  .empty{border:1px dashed #4d684d;border-radius:18px;padding:28px 18px;text-align:center;color:var(--muted);background:rgba(255,255,255,.03)}
+  .footer-brand{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(9,14,9,.92);border:1px solid rgba(124,255,107,.3);color:#dfffd8;padding:8px 14px;border-radius:999px;font-weight:900;box-shadow:0 8px 18px rgba(0,0,0,.3)}
+  body.kiosk-mode .wrap{max-width:none;padding:14px 14px 78px}
+  body.kiosk-mode .hero, body.kiosk-mode .controls, body.kiosk-mode .summary, body.kiosk-mode #btnPantalla{display:none!important}
+  body.kiosk-mode .panel{background:transparent;border:none;box-shadow:none;padding:0}
+  body.kiosk-mode .section-title h2{font-size:30px}
+  body.kiosk-mode .arrival-card{min-height:260px}
+  body.kiosk-mode .dorsal{font-size:96px}
+  body.kiosk-mode .stage-time{font-size:44px}
+  @media(max-width:900px){.controls,.summary{grid-template-columns:1fr 1fr}.row{grid-template-columns:70px 1fr 1fr}.row .ok{text-align:left}.row .cell:nth-child(4),.row .cell:nth-child(5){grid-column:auto}}
+  @media(max-width:620px){.wrap{padding:16px 12px 84px}.controls,.summary{grid-template-columns:1fr}.dorsal{font-size:58px}.stage-time{font-size:28px}.row{grid-template-columns:1fr}.row .ok{text-align:left}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>Puesto STOP · Llegada y tiempo invertido</h1>
+      <p>Selecciona el <b>ID del rally</b> y el <b>TC</b>. El último llegado aparecerá arriba de forma llamativa. Si llegan varios muy seguidos, se mantienen en orden de llegada hasta pulsar <b>OK</b>.</p>
+    </div>
+
+    <div class="panel">
+      <div class="controls">
+        <div class="field"><label>ID Rally</label><select id="selectorID"></select></div>
+        <div class="field"><label>Tramo TC</label><select id="selectorTC"></select></div>
+        <button class="btn" id="btnRefrescar">Refrescar</button>
+        <button class="btn" id="btnPantalla">Pantalla completa</button>
+      </div>
+      <div class="summary">
+        <div class="stat"><span class="k">ID</span><span class="v" id="statID">—</span></div>
+        <div class="stat"><span class="k">TC</span><span class="v" id="statTC">—</span></div>
+        <div class="stat"><span class="k">Pendientes OK</span><span class="v" id="statPendientes">0</span></div>
+        <div class="stat"><span class="k">Confirmados</span><span class="v" id="statOK">0</span></div>
+      </div>
+      <div id="estado" class="muted" style="margin-top:14px"></div>
+    </div>
+
+    <div class="panel">
+      <div class="section-title">
+        <h2>Últimos llegados pendientes de OK</h2>
+        <span class="muted">Ordenados por hora de llegada</span>
+      </div>
+      <div id="pendientes" class="latest-grid"></div>
+      <div id="emptyPendientes" class="empty" style="display:none">Aún no hay llegadas pendientes de confirmar en este TC.</div>
+    </div>
+
+    <div class="panel">
+      <div class="section-title">
+        <h2>Confirmados por STOP</h2>
+        <span class="muted">Los OK quedan guardados aparte y no modifican los tiempos originales.</span>
+      </div>
+      <div id="confirmados" class="list"></div>
+      <div id="emptyConfirmados" class="empty" style="display:none">Todavía no hay tiempos confirmados por STOP.</div>
+    </div>
+  </div>
+
+  <div class="footer-brand">G6K®</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBwmQakDh0mTs9QFq135I8LD1vG0-FNVo0",
+  authDomain: "heideggerp6v2.firebaseapp.com",
+  databaseURL: "https://heideggerp6v2-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "heideggerp6v2",
+  storageBucket: "heideggerp6v2.firebasestorage.app",
+  messagingSenderId: "504612088678",
+  appId: "1:504612088678:web:f7fc3f869ee4de9216fdab"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const $ = id => document.getElementById(id);
+
+let idsData = {};
+let currentID = "";
+let currentTC = "";
+let tramosActuales = {};
+let okActuales = {};
+let superRallyActual = {};
+let offTramos = null;
+let offOK = null;
+let offSR = null;
+
+function extraerNumero(clave){ return parseInt(String(clave || '').replace(/\D+/g, '') || '0', 10); }
+function esDorsalNumerico(v){ return /^\d+$/.test(String(v ?? '').trim()); }
+function parseHoraToMs(h){
+  if(!h || typeof h !== 'string') return null;
+  const m = h.match(/^(\d{2}):(\d{2}):(\d{2})\.(\d{3})$/);
+  if(!m) return null;
+  return (((+m[1]*60)+(+m[2]))*60+(+m[3]))*1000+(+m[4]);
+}
+function formatoTiempo(ms){
+  if(ms == null || !Number.isFinite(ms)) return '—';
+  if(ms < 0) ms += 24*60*60*1000;
+  const h = Math.floor(ms/3600000); ms %= 3600000;
+  const m = Math.floor(ms/60000); ms %= 60000;
+  const s = Math.floor(ms/1000);
+  const d = Math.floor((ms%1000)/100);
+  if(h > 0) return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${d}`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${d}`;
+}
+function safeKey(dorsal, llegada){ return `${String(dorsal).trim()}_${String(llegada).replace(/[^0-9]/g,'')}`; }
+function obtenerSR(dorsal){ return superRallyActual?.[String(dorsal)] || superRallyActual?.[String(+dorsal)] || null; }
+function esSR(dorsal){ const sr = obtenerSR(dorsal); return !!(sr && sr.activo !== false); }
+
+function cargarIDs(){
+  onValue(ref(db, 'IDs'), snap => {
+    idsData = snap.val() || {};
+    const ids = Object.keys(idsData).sort((a,b)=>a.localeCompare(b, undefined, {numeric:true}));
+    const sel = $('selectorID');
+    const prev = sel.value;
+    sel.innerHTML = ids.length ? '' : '<option value="">Sin IDs</option>';
+    ids.forEach(id => {
+      const op = document.createElement('option');
+      op.value = id; op.textContent = id; sel.appendChild(op);
+    });
+    if(prev && ids.includes(prev)) sel.value = prev;
+    else if(ids.length) sel.value = ids[0];
+    currentID = sel.value || '';
+    cargarTCs();
+    engancharTodo();
+  });
+}
+function cargarTCs(){
+  const sel = $('selectorTC');
+  const prev = sel.value;
+  const tramos = idsData?.[currentID]?.tramos || {};
+  const tcs = Object.keys(tramos).filter(k => k !== 'TC0').sort((a,b)=>extraerNumero(a)-extraerNumero(b));
+  sel.innerHTML = tcs.length ? '' : '<option value="">Sin TC</option>';
+  tcs.forEach(tc => { const op = document.createElement('option'); op.value = tc; op.textContent = tc; sel.appendChild(op); });
+  if(prev && tcs.includes(prev)) sel.value = prev;
+  else if(tcs.length) sel.value = tcs[0];
+  currentTC = sel.value || '';
+  pintar();
+}
+function engancharTodo(){
+  if(offTramos) offTramos(); if(offOK) offOK(); if(offSR) offSR();
+  tramosActuales = {}; okActuales = {}; superRallyActual = {};
+  if(!currentID){ pintar(); return; }
+  offTramos = onValue(ref(db, `IDs/${currentID}/tramos`), snap => { tramosActuales = snap.val() || {}; pintar(); });
+  offOK = onValue(ref(db, `IDs/${currentID}/stopOK`), snap => { okActuales = snap.val() || {}; pintar(); });
+  offSR = onValue(ref(db, `IDs/${currentID}/superRally`), snap => { superRallyActual = snap.val() || {}; pintar(); });
+}
+function obtenerPrimeraSalida(dorsal){
+  const salidaObj = tramosActuales?.[currentTC]?.puestos?.S?.tiempos || {};
+  let mejor = null;
+  Object.values(salidaObj).forEach(reg => {
+    const d = String(reg?.dorsal ?? '').trim();
+    const hora = String(reg?.tiempo ?? '').trim();
+    if(d !== String(dorsal) || !hora) return;
+    const ms = parseHoraToMs(hora);
+    if(!mejor || (ms != null && (mejor.ms == null || ms < mejor.ms))) mejor = {hora, ms};
+  });
+  return mejor;
+}
+function construirLlegadas(){
+  const llegadaObj = tramosActuales?.[currentTC]?.puestos?.LL?.tiempos || {};
+  const porKey = {};
+  Object.entries(llegadaObj).forEach(([rawKey, reg]) => {
+    const dorsal = String(reg?.dorsal ?? '').trim();
+    const llegada = String(reg?.tiempo ?? '').trim();
+    if(!esDorsalNumerico(dorsal) || !llegada) return;
+    const llegadaMs = parseHoraToMs(llegada);
+    const salida = obtenerPrimeraSalida(dorsal);
+    const invertidoMs = salida?.ms != null && llegadaMs != null ? llegadaMs - salida.ms : null;
+    const key = safeKey(dorsal, llegada);
+    porKey[key] = {
+      key, rawKey, dorsal, llegada, llegadaMs,
+      salida: salida?.hora || '', salidaMs: salida?.ms ?? null,
+      invertidoMs,
+      invertido: formatoTiempo(invertidoMs),
+      sr: esSR(dorsal)
+    };
+  });
+  return Object.values(porKey).sort((a,b)=>{
+    const am = a.llegadaMs == null ? -1 : a.llegadaMs;
+    const bm = b.llegadaMs == null ? -1 : b.llegadaMs;
+    if(am !== bm) return bm - am;
+    return (+a.dorsal) - (+b.dorsal);
+  });
+}
+function okMapaTC(){ return okActuales?.[currentTC] || {}; }
+function estaConfirmado(item){ return !!okMapaTC()?.[item.key]; }
+function llegadaDesdeOK(ok, key){
+  return { key, ...ok, llegadaMs: ok.llegadaMs ?? parseHoraToMs(ok.llegada || ''), sr: !!ok.sr };
+}
+async function confirmarOK(key){
+  const item = construirLlegadas().find(x => x.key === key);
+  if(!item || !currentID || !currentTC) return;
+  await set(ref(db, `IDs/${currentID}/stopOK/${currentTC}/${item.key}`), {
+    dorsal: item.dorsal,
+    salida: item.salida || '',
+    llegada: item.llegada || '',
+    tiempoInvertido: item.invertido || '',
+    salidaMs: item.salidaMs ?? null,
+    llegadaMs: item.llegadaMs ?? null,
+    invertidoMs: item.invertidoMs ?? null,
+    sr: !!item.sr,
+    okAt: new Date().toISOString()
+  });
+}
+window.confirmarOK = confirmarOK;
+function pintar(){
+  $('statID').textContent = currentID || '—';
+  $('statTC').textContent = currentTC || '—';
+  if(!currentID || !currentTC){
+    $('estado').textContent = 'Selecciona un ID y un TC.';
+    $('statPendientes').textContent = '0'; $('statOK').textContent = '0';
+    $('pendientes').innerHTML = ''; $('confirmados').innerHTML = '';
+    $('emptyPendientes').style.display = 'block'; $('emptyConfirmados').style.display = 'block';
+    return;
+  }
+  const llegadas = construirLlegadas();
+  const pendientes = llegadas.filter(x => !estaConfirmado(x));
+  const confirmados = Object.entries(okMapaTC()).map(([key, ok])=>llegadaDesdeOK(ok, key)).sort((a,b)=>{
+    const am = a.llegadaMs == null ? -1 : a.llegadaMs;
+    const bm = b.llegadaMs == null ? -1 : b.llegadaMs;
+    return bm - am;
+  });
+  $('statPendientes').textContent = String(pendientes.length);
+  $('statOK').textContent = String(confirmados.length);
+  $('estado').textContent = `ID ${currentID} · ${currentTC} · lectura de llegadas en tiempo real.`;
+
+  const contP = $('pendientes'); contP.innerHTML = '';
+  $('emptyPendientes').style.display = pendientes.length ? 'none' : 'block';
+  pendientes.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'arrival-card' + (idx === 0 ? ' first' : '');
+    div.innerHTML = `
+      <div>
+        <div class="topline"><span class="label">${idx === 0 ? 'Último llegado' : 'Llegada pendiente'}</span>${item.sr ? '<span class="sr-badge">SR</span>' : ''}</div>
+        <div class="dorsal">${item.dorsal}</div>
+        <div class="times">Llegada: <b>${item.llegada || '—'}</b><br>Salida: <b>${item.salida || '—'}</b></div>
+        <div class="stage-time">${item.invertido || '—'}</div>
+        ${item.salida ? '' : '<div class="mini-note">Sin hora de salida encontrada para calcular el tiempo.</div>'}
+      </div>
+      <button class="ok-btn" onclick="confirmarOK('${item.key}')">OK · Anotado</button>
+    `;
+    contP.appendChild(div);
+  });
+
+  const contC = $('confirmados'); contC.innerHTML = '';
+  $('emptyConfirmados').style.display = confirmados.length ? 'none' : 'block';
+  confirmados.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <div class="num">${item.dorsal || '—'} ${item.sr ? '<span class="sr-badge" style="font-size:12px;padding:3px 7px;vertical-align:middle">SR</span>' : ''}</div>
+      <div class="cell">Llegada<br><span class="big">${item.llegada || '—'}</span></div>
+      <div class="cell">Tiempo<br><span class="big">${item.tiempoInvertido || item.invertido || '—'}</span></div>
+      <div class="cell">Salida<br><span class="big">${item.salida || '—'}</span></div>
+      <div class="ok">OK</div>
+    `;
+    contC.appendChild(row);
+  });
+}
+$('selectorID').addEventListener('change', () => { currentID = $('selectorID').value || ''; cargarTCs(); engancharTodo(); });
+$('selectorTC').addEventListener('change', () => { currentTC = $('selectorTC').value || ''; pintar(); });
+$('btnRefrescar').addEventListener('click', async () => {
+  if(!currentID) return;
+  const snap = await get(ref(db, `IDs/${currentID}/tramos`));
+  tramosActuales = snap.val() || {};
+  pintar();
+});
+function syncFullscreenMode(){
+  const active = !!document.fullscreenElement;
+  document.body.classList.toggle('kiosk-mode', active);
+  $('btnPantalla').textContent = active ? 'Salir pantalla completa' : 'Pantalla completa';
+}
+document.addEventListener('fullscreenchange', syncFullscreenMode);
+$('btnPantalla').addEventListener('click', async () => {
+  try{ if(!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen(); }catch(e){}
+});
+syncFullscreenMode();
+cargarIDs();
+</script>
+</body>
+</html>

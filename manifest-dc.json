@@ -1,0 +1,25 @@
+{
+  "name": "Panel DC Rally",
+  "short_name": "Panel DC",
+  "description": "Panel de Dirección de Carrera para seguimiento de salida, llegada, CH, abandonos y Super Rallye.",
+  "start_url": "./indexdc.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0f0a",
+  "theme_color": "#0a0f0a",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

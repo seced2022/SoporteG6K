@@ -3,13 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<link rel="manifest" href="manifest-dc.json">
-<meta name="theme-color" content="#0a0f0a">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Panel DC">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Heidegger Race · Panel TC</title>
 <style>
   :root{
@@ -170,6 +163,22 @@
     color:#4a0f10;
     border-color:var(--red-card-border);
     box-shadow:0 10px 18px rgba(0,0,0,.22), inset 0 0 0 2px rgba(255,77,79,.28);
+  }
+  .card{position:relative}
+  .sr-badge{
+    position:absolute;
+    top:8px;
+    right:8px;
+    background:#e10600;
+    color:#fff;
+    border:2px solid #fff;
+    border-radius:999px;
+    padding:4px 8px;
+    font-size:13px;
+    font-weight:900;
+    line-height:1;
+    box-shadow:0 4px 10px rgba(0,0,0,.28);
+    z-index:2;
   }
   .dorsal{font-size:42px; font-weight:900; line-height:1}
   .status{font-size:14px; font-weight:800; margin-top:10px}
@@ -367,8 +376,10 @@ let currentTC = "";
 let currentCH = "TODOS";
 let tramosListenerOff = null;
 let abandonosListenerOff = null;
+let superRallyListenerOff = null;
 let tramosActuales = {};
 let abandonosActuales = {};
+let superRallyActuales = {};
 
 function extraerNumero(clave){
   return parseInt(String(clave || '').replace(/\D+/g, '') || '0', 10);
@@ -405,6 +416,7 @@ function cargarIDs(){
     cargarTCs();
     engancharTramos();
     engancharAbandonos();
+    engancharSuperRally();
   });
 }
 
@@ -482,6 +494,64 @@ function obtenerAbandonoDorsal(dorsal){
   for(const val of Object.values(mapa)){
     if(val && typeof val === 'object' && String(val.dorsal ?? '').trim() === String(dorsal)) return val;
   }
+  return null;
+}
+
+function normalizarBool(v){
+  return v === true || v === "true" || v === 1 || v === "1" || v === "SI" || v === "SÍ";
+}
+
+function engancharSuperRally(){
+  if(superRallyListenerOff) superRallyListenerOff();
+  if(!currentID){
+    superRallyActuales = {};
+    pintar();
+    return;
+  }
+  superRallyListenerOff = onValue(ref(db, `IDs/${currentID}/superRally`), snap => {
+    superRallyActuales = snap.val() || {};
+    pintar();
+  });
+}
+
+function obtenerSuperRallyDorsal(dorsal){
+  const mapa = superRallyActuales || {};
+  const directo = mapa?.[String(dorsal)] || mapa?.[String(+dorsal)] || null;
+  if(directo && typeof directo === 'object') return directo;
+
+  for(const val of Object.values(mapa)){
+    if(val && typeof val === 'object' && String(val.dorsal ?? '').trim() === String(dorsal)) return val;
+  }
+  return null;
+}
+
+function dorsalTieneSuperRally(dorsal){
+  const sr = obtenerSuperRallyDorsal(dorsal);
+  return !!(sr && sr.activo !== false);
+}
+
+
+function tcNumero(tc){
+  return extraerNumero(tc || '');
+}
+
+function abandonoVisibleEnTC(dorsal, tc){
+  const ab = obtenerAbandonoDorsal(dorsal);
+  if(!ab) return null;
+
+  const sr = obtenerSuperRallyDorsal(dorsal);
+  if(!(sr && sr.activo !== false)) return ab;
+
+  const tcAbandono = String(ab.tc || ab.TC || sr.tcAbandono || '').trim();
+  const tcSR = String(sr.tcAbandono || tcAbandono || '').trim();
+  const tcActual = String(tc || currentTC || '').trim();
+
+  // Cuando un abandono se convierte en Super Rallye, el abandono solo debe verse
+  // en el punto real donde se produjo. Desde los TC posteriores vuelve a aparecer
+  // como participante activo con la etiqueta SR.
+  if(tcActual && tcAbandono && tcActual === tcAbandono) return ab;
+  if(tcActual && tcSR && tcActual === tcSR) return ab;
+
   return null;
 }
 
@@ -563,10 +633,11 @@ function construirPanelVisible(){
   const listaTC = construirPanelDorsales();
   if(!currentCH || currentCH === 'TODOS'){
     return listaTC.map(item => {
-      const abandono = obtenerAbandonoDorsal(item.dorsal);
+      const abandono = abandonoVisibleEnTC(item.dorsal, currentTC);
       return {
         ...item,
         abandono: abandono || null,
+        superRally: obtenerSuperRallyDorsal(item.dorsal),
         estado: abandono ? 'abandono' : (item.llegada ? 'done' : 'pending')
       };
     });
@@ -581,7 +652,7 @@ function construirPanelVisible(){
   const grisSoloCH = listaCH
     .filter(itemCH => !listaTC.some(itemTC => itemTC.dorsal === itemCH.dorsal))
     .map(itemCH => {
-      const abandono = obtenerAbandonoDorsal(itemCH.dorsal);
+      const abandono = abandonoVisibleEnTC(itemCH.dorsal, currentTC);
       return {
         dorsal: itemCH.dorsal,
         ch: itemCH.ch,
@@ -592,13 +663,14 @@ function construirPanelVisible(){
         llegada: '',
         llegadaMs: null,
         abandono: abandono || null,
+        superRally: obtenerSuperRallyDorsal(itemCH.dorsal),
         estado: abandono ? 'abandono' : 'ch'
       };
     });
 
   const conSalida = listaTC.map(itemTC => {
     const itemCH = mapaCH[itemTC.dorsal] || null;
-    const abandono = obtenerAbandonoDorsal(itemTC.dorsal);
+    const abandono = abandonoVisibleEnTC(itemTC.dorsal, currentTC);
     return {
       dorsal: itemTC.dorsal,
       ch: itemCH?.ch || currentCH,
@@ -609,6 +681,7 @@ function construirPanelVisible(){
       llegada: itemTC.llegada || '',
       llegadaMs: itemTC.llegadaMs ?? null,
       abandono: abandono || null,
+      superRally: obtenerSuperRallyDorsal(itemTC.dorsal),
       estado: abandono ? 'abandono' : (itemTC.llegada ? 'done' : 'pending')
     };
   });
@@ -673,7 +746,9 @@ function pintar(){
       lineas.push(`Abandono: ${item.abandono?.tc || item.abandono?.TC || '—'}`);
     }
 
+    const esSR = dorsalTieneSuperRally(item.dorsal);
     card.innerHTML = `
+      ${esSR ? '<div class="sr-badge" title="Super Rallye">SR</div>' : ''}
       <div class="dorsal">${item.dorsal}</div>
       <div class="status">${status}</div>
       <div class="times">${lineas.join('<br>')}</div>
@@ -687,6 +762,7 @@ $('selectorID').addEventListener('change', () => {
   cargarTCs();
   engancharTramos();
   engancharAbandonos();
+  engancharSuperRally();
 });
 
 $('selectorTC').addEventListener('change', () => {
@@ -724,14 +800,6 @@ $('btnPantalla').addEventListener('click', async () => {
 
 syncFullscreenMode();
 cargarIDs();
-</script>
-
-<script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
-  });
-}
 </script>
 </body>
 </html>

@@ -576,6 +576,77 @@ th,td{
     </div>
   </div>
 
+  <div style="margin-top:14px; margin-bottom:14px; padding:12px; border:1px solid #333; border-radius:8px; background:#151515;">
+    <h4 style="margin:0 0 10px 0;">Penalizaciones</h4>
+
+    <div style="margin-bottom:10px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+      <div>
+        Dorsal:
+        <input id="penDorsal" style="width:80px" placeholder="Nº">
+      </div>
+
+      <div>
+        Artículo / motivo:
+        <select id="penTipo" onchange="actualizarAyudaPenalizacion()" style="min-width:360px">
+          <option value="MANUAL_TIEMPO">Manual - Penalización de tiempo</option>
+          <option value="ART17_REC_1">Art. 17 - Reconocimientos 1ª vez: 5 minutos</option>
+          <option value="ART17_REC_2">Art. 17 - Reconocimientos 2ª vez: 5 minutos</option>
+          <option value="ART22_2_5_RETRASO_SALIDA">Art. 22.2.5 - Retraso salida rallye/etapa/sección/sector: 10 s por minuto o fracción</option>
+          <option value="ART29_7_9_CH_RETRASO">Art. 29.7.9 - Retraso en control horario: 10 s por minuto o fracción</option>
+          <option value="ART29_7_9_CH_ADELANTO">Art. 29.7.9 - Adelanto en control horario: 1 min por minuto o fracción</option>
+          <option value="ART30_5_RETRASO_TC">Art. 30.5 - Retraso salida TC imputable al equipo: 1 min por minuto o fracción</option>
+          <option value="ART30_6_FALSA_SALIDA">Art. 30.6 - Falsa salida: según vez</option>
+          <option value="ART30_8_REHUSAR_TC">Art. 30.8 - Rehusar salida TC: mínimo 10 minutos</option>
+          <option value="ART31_2_2_REPARAR">Art. 31.2.2 - Reparar en condiciones establecidas: 10 s por minuto o fracción</option>
+          <option value="ART31_2_2_SOBREPASAR">Art. 31.2.2 - Sobrepasar hora establecida: 10 s por minuto o fracción</option>
+          <option value="ESTADO_DESCALIFICADO">Estado - Descalificación</option>
+          <option value="ESTADO_ELIMINADO">Estado - Eliminado de carrera</option>
+          <option value="ESTADO_NO_AUTORIZADO">Estado - No autorizado a tomar la salida</option>
+          <option value="ESTADO_CRITERIO">A criterio del Colegio de CCDD</option>
+        </select>
+      </div>
+
+      <div>
+        Min/fracción o vez:
+        <input id="penCantidad" type="number" min="0" step="1" style="width:90px" value="0">
+      </div>
+
+      <div>
+        Manual seg.:
+        <input id="penManualSeg" type="number" min="0" step="1" style="width:100px" value="0">
+      </div>
+    </div>
+
+    <div style="margin-bottom:10px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+      <div style="flex:1; min-width:320px;">
+        Observaciones:
+        <input id="penObs" style="width:100%; min-width:320px" placeholder="Control, TC, detalle o decisión CCDD">
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn" onclick="guardarPenalizacion()">Añadir penalización</button>
+        <button class="btn" onclick="limpiarFormularioPenalizacion()">Limpiar</button>
+      </div>
+    </div>
+
+    <div id="ayudaPenalizacion" class="small" style="margin-bottom:8px;"></div>
+    <div id="estadoPenalizaciones" class="small" style="margin-bottom:8px;"></div>
+
+    <table id="tablaPenalizaciones">
+      <thead>
+        <tr>
+          <th>Dorsal</th>
+          <th>Art.</th>
+          <th>Motivo</th>
+          <th>Pen.</th>
+          <th>Estado</th>
+          <th>Obs.</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
   <button class="btn" onclick="mostrarVistaPreviaClasificacion()">Vista previa</button>
   <button class="btn" onclick="exportarClasificacionPDF()">Exportar PDF</button>
 
@@ -908,7 +979,9 @@ let currentID = null;
 let currentTramosData = {};
 let inscritosCache = {};
 let abandonosCache = {};
+let penalizacionesCache = {};
 let offAbandonosCurrent = null;
+let offPenalizacionesCurrent = null;
 const selectedTCs = new Set();
 
 function dorsalTieneAbandono(num){
@@ -995,6 +1068,7 @@ onValue(ref(db,"IDs"), snap=>{
   pintarCH();
   engancharTramosSoloParaAbandonos(selAB_ID.value);
   pintarAbandonos();
+  pintarPenalizaciones();
 });
 
 $("selectorID").addEventListener("change", ()=>{
@@ -1010,6 +1084,7 @@ $("idInscritos").addEventListener("change", ()=>{
 
 $("selectorID_PDF").addEventListener("change", ()=>{
   actualizarFiltrosPDF();
+  engancharPenalizacionesActuales($("selectorID_PDF").value || currentID || "");
 });
 
 $("selectorTipoPDF").addEventListener("change", ()=>{
@@ -1029,6 +1104,7 @@ function engancharLecturasDeID(id){
 
   engancharInscritos(id);
   engancharAbandonosActuales(id);
+  engancharPenalizacionesActuales(id);
 }
 
 function engancharInscritos(id){
@@ -1307,7 +1383,7 @@ function getVehiculo(num){
 }
 
 function dorsalClasificable(num){
-  return inscritosCache?.[num]?.clasificar === true && !dorsalTieneAbandono(num);
+  return inscritosCache?.[num]?.clasificar === true && !dorsalTieneAbandono(num) && !dorsalTieneEstadoNoClasificable(num);
 }
 
 function obtenerListaAbandonosFiltrados(filtros = {}, tc = ""){
@@ -1321,6 +1397,202 @@ function obtenerListaAbandonosFiltrados(filtros = {}, tc = ""){
     })
     .sort((a,b)=>(b?.timestamp||0)-(a?.timestamp||0));
 }
+
+/* ================= PENALIZACIONES CARA 2026 ================= */
+const ESTADOS_NO_CLASIFICABLES = new Set(["DESCALIFICADO","ELIMINADO","NO_AUTORIZADO"]);
+
+const REGLAS_PENALIZACION = {
+  MANUAL_TIEMPO: { art:"MANUAL", motivo:"Penalización manual de tiempo", ayuda:"Introduce los segundos exactos en Manual seg." },
+  ART17_REC_1: { art:"17", motivo:"Incumplimiento normativa reconocimientos - 1ª vez", segundos:300, ayuda:"Reglamento: 5 minutos." },
+  ART17_REC_2: { art:"17", motivo:"Incumplimiento normativa reconocimientos - 2ª vez", segundos:300, ayuda:"Reglamento: 5 minutos." },
+  ART22_2_5_RETRASO_SALIDA: { art:"22.2.5", motivo:"Retraso en presentación a salida rallye/etapa/sección/sector", tipo:"10S_MIN", ayuda:"10 segundos por minuto o fracción. Hasta 15 minutos; si supera 15, corresponde no autorizado a tomar la salida según art. 22.2.6." },
+  ART29_7_9_CH_RETRASO: { art:"29.7.9", motivo:"Retraso en control horario", tipo:"10S_MIN", ayuda:"10 segundos por minuto o fracción de minuto de retraso." },
+  ART29_7_9_CH_ADELANTO: { art:"29.7.9", motivo:"Adelanto en control horario", tipo:"60S_MIN", ayuda:"1 minuto por minuto o fracción de minuto de adelanto." },
+  ART30_5_RETRASO_TC: { art:"30.5", motivo:"Retraso en salida de tramo cronometrado imputable al equipo", tipo:"60S_MIN", ayuda:"1 minuto por cada minuto o fracción de minuto." },
+  ART30_6_FALSA_SALIDA: { art:"30.6", motivo:"Falsa salida", tipo:"FALSA_SALIDA", ayuda:"Cantidad = vez. 1ª: mínimo 10 s · 2ª: mínimo 1 min · 3ª: mínimo 3 min · 4ª: a criterio CCDD." },
+  ART30_8_REHUSAR_TC: { art:"30.8", motivo:"Rehusar tomar la salida en un tramo cronometrado", tipo:"MINIMO_600", ayuda:"A criterio CCDD con penalización mínima de 10 minutos. Puedes introducir más segundos en Manual seg." },
+  ART31_2_2_REPARAR: { art:"31.2.2", motivo:"Reparar en las condiciones establecidas", tipo:"10S_MIN", ayuda:"10 segundos por minuto o fracción de minuto." },
+  ART31_2_2_SOBREPASAR: { art:"31.2.2", motivo:"Sobrepasar la hora establecida", tipo:"10S_MIN", ayuda:"10 segundos por minuto o fracción de minuto." },
+  ESTADO_DESCALIFICADO: { art:"", motivo:"Descalificación", estado:"DESCALIFICADO", ayuda:"No suma tiempo: marca al participante como descalificado y lo saca de la clasificación." },
+  ESTADO_ELIMINADO: { art:"", motivo:"Eliminado de carrera", estado:"ELIMINADO", ayuda:"No suma tiempo: marca al participante como eliminado y lo saca de la clasificación." },
+  ESTADO_NO_AUTORIZADO: { art:"", motivo:"No autorizado a tomar la salida", estado:"NO_AUTORIZADO", ayuda:"No suma tiempo: marca al participante como no autorizado y lo saca de la clasificación." },
+  ESTADO_CRITERIO: { art:"", motivo:"A criterio del Colegio de CCDD", estado:"CRITERIO_CCDD", ayuda:"Usa Manual seg. si CCDD fija una penalización de tiempo, o guarda solo la observación si queda pendiente." }
+};
+
+function ceilPositivo(n){
+  n = Number(n || 0);
+  if(!isFinite(n) || n < 0) return 0;
+  return Math.ceil(n);
+}
+
+function segundosToPenalizacion(seg){
+  seg = Math.max(0, Number(seg || 0));
+  return msToDur(seg * 1000);
+}
+
+function calcularDatosPenalizacion(tipo, cantidad, manualSeg){
+  const regla = REGLAS_PENALIZACION[tipo] || REGLAS_PENALIZACION.MANUAL_TIEMPO;
+  const cant = ceilPositivo(cantidad);
+  const manual = ceilPositivo(manualSeg);
+  let segundos = 0;
+  let estado = regla.estado || "PENALIZADO";
+
+  if(regla.segundos != null) segundos = regla.segundos;
+  else if(regla.tipo === "10S_MIN") segundos = cant * 10;
+  else if(regla.tipo === "60S_MIN") segundos = cant * 60;
+  else if(regla.tipo === "FALSA_SALIDA"){
+    if(cant <= 1) segundos = 10;
+    else if(cant === 2) segundos = 60;
+    else if(cant === 3) segundos = 180;
+    else { segundos = manual; estado = manual ? "PENALIZADO" : "CRITERIO_CCDD"; }
+    if(manual > segundos) segundos = manual;
+  }
+  else if(regla.tipo === "MINIMO_600") segundos = Math.max(600, manual);
+  else segundos = manual;
+
+  if(tipo === "ART22_2_5_RETRASO_SALIDA" && cant > 15){
+    estado = "NO_AUTORIZADO";
+    segundos = 0;
+  }
+
+  if(regla.estado && manual > 0){
+    segundos = manual;
+    estado = "PENALIZADO";
+  }
+
+  return {
+    tipo,
+    art: regla.art || "",
+    motivo: regla.motivo || "",
+    cantidad: cant,
+    segundos,
+    penalizacionMs: segundos * 1000,
+    penalizacion: segundos ? segundosToPenalizacion(segundos) : "",
+    estado
+  };
+}
+
+function resumenPenalizacionesDorsal(dorsal){
+  const items = Object.values(penalizacionesCache || {}).filter(p=>String(p?.dorsal || "") === String(dorsal || ""));
+  const penalizacionMs = items.reduce((acc,p)=>acc + (Number(p?.penalizacionMs || 0) || 0), 0);
+  let estado = "";
+  for(const p of items){
+    if(ESTADOS_NO_CLASIFICABLES.has(String(p?.estado || ""))){ estado = p.estado; break; }
+  }
+  return {
+    items,
+    penalizacionMs,
+    penalizacion: penalizacionMs ? msToDur(penalizacionMs) : "",
+    estado
+  };
+}
+
+function dorsalTieneEstadoNoClasificable(num){
+  return !!resumenPenalizacionesDorsal(num).estado;
+}
+
+function obtenerListaPenalizacionesFiltradas(filtros = {}){
+  return Object.entries(penalizacionesCache || {})
+    .map(([key,p])=>({key, ...p}))
+    .filter(p=>p && String(p.dorsal || "").trim())
+    .filter(p=>{
+      const d = inscritosCache?.[p.dorsal] || {};
+      if(Object.keys(filtros || {}).length && !coincideFiltrosInscrito(d, filtros)) return false;
+      return true;
+    })
+    .sort((a,b)=>(b?.timestamp||0)-(a?.timestamp||0));
+}
+
+function obtenerListaPenalizacionesEstadoFiltradas(filtros = {}){
+  return obtenerListaPenalizacionesFiltradas(filtros).filter(p=>ESTADOS_NO_CLASIFICABLES.has(String(p.estado || "")) || String(p.estado || "") === "CRITERIO_CCDD");
+}
+
+function pintarPenalizaciones(){
+  const tb = $("tablaPenalizaciones")?.querySelector("tbody");
+  if(!tb) return;
+  tb.innerHTML = "";
+  const filtros = obtenerFiltrosPDF ? obtenerFiltrosPDF() : {};
+  const lista = obtenerListaPenalizacionesFiltradas(filtros);
+  lista.forEach(p=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${p.dorsal || ""}</td>
+      <td>${p.art || ""}</td>
+      <td style="text-align:left">${p.motivo || ""}</td>
+      <td>${p.penalizacion || ""}</td>
+      <td>${p.estado || ""}</td>
+      <td style="text-align:left">${p.observaciones || ""}</td>
+      <td><button class="tc-close" onclick="eliminarPenalizacion('${p.key}')">Eliminar</button></td>
+    `;
+    tb.appendChild(tr);
+  });
+  const estado = $("estadoPenalizaciones");
+  if(estado) estado.textContent = lista.length ? `${lista.length} penalización/es registrada/s.` : "Sin penalizaciones registradas para estos filtros.";
+}
+
+window.actualizarAyudaPenalizacion = function(){
+  const tipo = $("penTipo")?.value || "MANUAL_TIEMPO";
+  const regla = REGLAS_PENALIZACION[tipo] || REGLAS_PENALIZACION.MANUAL_TIEMPO;
+  const ayuda = $("ayudaPenalizacion");
+  if(ayuda) ayuda.textContent = regla.ayuda || "";
+};
+
+window.limpiarFormularioPenalizacion = function(){
+  if($("penDorsal")) $("penDorsal").value = "";
+  if($("penCantidad")) $("penCantidad").value = "0";
+  if($("penManualSeg")) $("penManualSeg").value = "0";
+  if($("penObs")) $("penObs").value = "";
+  window.actualizarAyudaPenalizacion();
+};
+
+window.guardarPenalizacion = async function(){
+  const id = $("selectorID_PDF")?.value || currentID || "";
+  const dorsal = normalizarDorsal($("penDorsal")?.value || "");
+  const tipo = $("penTipo")?.value || "MANUAL_TIEMPO";
+  const cantidad = $("penCantidad")?.value || 0;
+  const manualSeg = $("penManualSeg")?.value || 0;
+  const observaciones = $("penObs")?.value.trim() || "";
+  const estadoEl = $("estadoPenalizaciones");
+
+  if(!id){ if(estadoEl) estadoEl.textContent = "❌ Selecciona un ID."; return; }
+  if(!dorsal){ if(estadoEl) estadoEl.textContent = "❌ Indica dorsal."; return; }
+
+  const datos = calcularDatosPenalizacion(tipo, cantidad, manualSeg);
+  const nuevaRef = push(ref(db, `IDs/${id}/penalizaciones`));
+  await set(nuevaRef, {
+    dorsal,
+    ...datos,
+    observaciones,
+    timestamp: Date.now()
+  });
+
+  if(estadoEl) estadoEl.textContent = "✅ Penalización guardada.";
+  window.limpiarFormularioPenalizacion();
+};
+
+window.eliminarPenalizacion = async function(key){
+  const id = $("selectorID_PDF")?.value || currentID || "";
+  if(!id || !key) return;
+  const ok = confirm("¿Eliminar esta penalización?");
+  if(!ok) return;
+  await remove(ref(db, `IDs/${id}/penalizaciones/${key}`));
+};
+
+function engancharPenalizacionesActuales(id){
+  penalizacionesCache = {};
+  if(offPenalizacionesCurrent) offPenalizacionesCurrent();
+  if(!id) return;
+  offPenalizacionesCurrent = onValue(ref(db, `IDs/${id}/penalizaciones`), snap=>{
+    penalizacionesCache = snap.val() || {};
+    pintarPenalizaciones();
+    pintarRecuadrosTC();
+    const prev = document.getElementById("vistaPreviaClasificacion");
+    if(prev && prev.innerHTML.trim()){
+      try{ mostrarVistaPreviaClasificacion(); }catch(e){}
+    }
+  });
+}
+
 
 /* ================= IMPORTAR INSCRITOS DESDE PDF ================= */
 let inscritosPDFImport = [];
@@ -2218,25 +2490,35 @@ function calcularGeneralFiltrado(filtros = {}){
           categoria: d.categoria || "",
           agrupacion: d.agrupacion || "",
           copa: d.copa || "",
+          totalTramosMs: 0,
+          penalizacionMs: 0,
           totalMs: 0,
           tramosOK: 0
         };
       }
 
-      acc[f.dorsal].totalMs += f.tiempoMs;
+      acc[f.dorsal].totalTramosMs += f.tiempoMs;
       acc[f.dorsal].tramosOK += 1;
     });
   });
 
-  const lista = Object.values(acc).map(x=>({
-    ...x,
-    total: msToDur(x.totalMs)
-  }));
+  const lista = Object.values(acc).map(x=>{
+    const pen = resumenPenalizacionesDorsal(x.dorsal);
+    const penalizacionMs = pen.penalizacionMs || 0;
+    const totalFinalMs = x.totalTramosMs + penalizacionMs;
+    return {
+      ...x,
+      penalizacionMs,
+      totalMs: totalFinalMs,
+      totalTramos: msToDur(x.totalTramosMs),
+      penalizacion: penalizacionMs ? msToDur(penalizacionMs) : "",
+      total: msToDur(totalFinalMs)
+    };
+  });
 
   lista.sort((a,b)=>a.totalMs-b.totalMs);
   return lista;
 }
-
 function calcularTramoFiltrado(tc, filtros = {}){
   const lista = calcularClasificacionTC(tc);
   return lista.filter(f=>{
@@ -2352,7 +2634,7 @@ window.exportarClasificacionPDF = async function(){
     if(tipo === "GENERAL"){
       const lista = calcularGeneralFiltrado(filtros);
       listaAbandonos = obtenerListaAbandonosFiltrados(filtros);
-      head = [["POS","Nº","Participantes","Vehículo","Tramos OK","Total"]];
+      head = [["POS","Nº","Participantes","Vehículo","Tramos OK","Tramos","Pen.","Total"]];
       filas = await Promise.all(lista.map(async (f, i)=>({
         pos: i+1,
         dorsal: f.dorsal,
@@ -2367,6 +2649,8 @@ window.exportarClasificacionPDF = async function(){
           logo: await urlToDataURL(getImagenVehiculo(f.dorsal))
         },
         tramosOK: f.tramosOK,
+        totalTramos: f.totalTramos || "",
+        penalizacion: f.penalizacion || "",
         total: f.total
       })));
       cabeceraSecundaria = `${id} · General`;
@@ -2431,7 +2715,7 @@ window.exportarClasificacionPDF = async function(){
 
     if(filas.length){
       const body = (tipo === "GENERAL")
-        ? filas.map(r=>[r.pos, r.dorsal, "", "", r.tramosOK, r.total])
+        ? filas.map(r=>[r.pos, r.dorsal, "", "", r.tramosOK, r.totalTramos, r.penalizacion, r.total])
         : filas.map(r=>[r.pos, r.tc, r.dorsal, "", "", r.salida, r.llegada, r.tiempo]);
 
       doc.autoTable({
@@ -2441,7 +2725,7 @@ window.exportarClasificacionPDF = async function(){
         styles: { fontSize: 8, cellPadding: {top: 4, right: 2, bottom: 4, left: 2}, minCellHeight: 12, valign: "middle" },
         headStyles: { fillColor: [230, 6, 0] },
         margin: { left: 8, right: 8 },
-        columnStyles: (tipo === "GENERAL") ? {2:{cellWidth:58},3:{cellWidth:42}} : {3:{cellWidth:58},4:{cellWidth:42}},
+        columnStyles: (tipo === "GENERAL") ? {2:{cellWidth:50},3:{cellWidth:34}} : {3:{cellWidth:58},4:{cellWidth:42}},
         didDrawCell: function(data){
           if(data.section !== "body") return;
           const row = filas[data.row.index];
@@ -2494,6 +2778,27 @@ window.exportarClasificacionPDF = async function(){
         head: [["Dorsal","Participantes","TC Abandono","Motivo"]],
         body: construirFilasAbandonosPDF(listaAbandonos),
         styles: { fontSize: 8, cellPadding: 2.5, valign: "middle" },
+        headStyles: { fillColor: [120, 120, 120] },
+        margin: { left: 8, right: 8 }
+      });
+    }
+
+
+    const listaPenalizaciones = obtenerListaPenalizacionesFiltradas(filtros);
+    if(listaPenalizaciones.length){
+      startY = (doc.lastAutoTable?.finalY || startY) + 8;
+      if(startY > 250){
+        doc.addPage();
+        startY = 15;
+      }
+      doc.setFontSize(11);
+      doc.text("Penalizaciones", 14, startY);
+      startY += 3;
+      doc.autoTable({
+        startY,
+        head: [["Dorsal","Art.","Motivo","Pen.","Estado","Obs."]],
+        body: listaPenalizaciones.map(p=>[p.dorsal||"", p.art||"", p.motivo||"", p.penalizacion||"", p.estado||"", p.observaciones||""]),
+        styles: { fontSize: 7, cellPadding: 2.2, valign: "middle" },
         headStyles: { fillColor: [120, 120, 120] },
         margin: { left: 8, right: 8 }
       });
@@ -2814,6 +3119,7 @@ setTimeout(initAbandonos, 600);
 
 rellenarSelectImagenes();
 mostrarPanel("tiempos");
+actualizarAyudaPenalizacion();
 
 function mostrarVistaPreviaClasificacion(){
   const cont = document.getElementById("vistaPreviaClasificacion");
@@ -2826,9 +3132,9 @@ function mostrarVistaPreviaClasificacion(){
   if(tipo === "GENERAL"){
     const lista = calcularGeneralFiltrado(filtros);
     html += "<table style='width:100%;border-collapse:collapse'>";
-    html += "<tr><th>POS</th><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th><th>Tramos OK</th><th>Total</th></tr>";
+    html += "<tr><th>POS</th><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th><th>Tramos OK</th><th>Tramos</th><th>Pen.</th><th>Total</th></tr>";
     lista.forEach((f, i)=>{
-      html += `<tr><td>${i+1}</td><td>${f.dorsal}</td><td>${f.piloto||""}</td><td>${f.copiloto||""}</td><td>${f.vehiculo||""}</td><td>${f.tramosOK}</td><td>${f.total}</td></tr>`;
+      html += `<tr><td>${i+1}</td><td>${f.dorsal}</td><td>${f.piloto||""}</td><td>${f.copiloto||""}</td><td>${f.vehiculo||""}</td><td>${f.tramosOK}</td><td>${f.totalTramos||""}</td><td>${f.penalizacion||""}</td><td>${f.total}</td></tr>`;
     });
     html += "</table>";
 
@@ -2840,6 +3146,17 @@ function mostrarVistaPreviaClasificacion(){
       abandonos.forEach((ab)=>{
         const d = inscritosCache?.[ab.dorsal] || {};
         html += `<tr><td>${ab.dorsal||""}</td><td>${d.piloto||""}${d.copiloto ? " / " + d.copiloto : ""}</td><td>${ab.tc||""}</td><td>${ab.motivo||""}</td></tr>`;
+      });
+      html += "</table>";
+    }
+
+    const penalizaciones = obtenerListaPenalizacionesFiltradas(filtros);
+    if(penalizaciones.length){
+      html += "<h4 style='margin-top:14px;'>Penalizaciones</h4>";
+      html += "<table style='width:100%;border-collapse:collapse'>";
+      html += "<tr><th>Dorsal</th><th>Art.</th><th>Motivo</th><th>Pen.</th><th>Estado</th><th>Obs.</th></tr>";
+      penalizaciones.forEach((p)=>{
+        html += `<tr><td>${p.dorsal||""}</td><td>${p.art||""}</td><td style="text-align:left">${p.motivo||""}</td><td>${p.penalizacion||""}</td><td>${p.estado||""}</td><td style="text-align:left">${p.observaciones||""}</td></tr>`;
       });
       html += "</table>";
     }
@@ -2861,6 +3178,17 @@ function mostrarVistaPreviaClasificacion(){
       abandonos.forEach((ab)=>{
         const d = inscritosCache?.[ab.dorsal] || {};
         html += `<tr><td>${ab.dorsal||""}</td><td>${d.piloto||""}${d.copiloto ? " / " + d.copiloto : ""}</td><td>${ab.tc||""}</td><td>${ab.motivo||""}</td></tr>`;
+      });
+      html += "</table>";
+    }
+
+    const penalizaciones = obtenerListaPenalizacionesFiltradas(filtros);
+    if(penalizaciones.length){
+      html += "<h4 style='margin-top:14px;'>Penalizaciones</h4>";
+      html += "<table style='width:100%;border-collapse:collapse'>";
+      html += "<tr><th>Dorsal</th><th>Art.</th><th>Motivo</th><th>Pen.</th><th>Estado</th><th>Obs.</th></tr>";
+      penalizaciones.forEach((p)=>{
+        html += `<tr><td>${p.dorsal||""}</td><td>${p.art||""}</td><td style="text-align:left">${p.motivo||""}</td><td>${p.penalizacion||""}</td><td>${p.estado||""}</td><td style="text-align:left">${p.observaciones||""}</td></tr>`;
       });
       html += "</table>";
     }
@@ -2941,6 +3269,10 @@ function construirClasificacionPublicaJSON(){
           clase: f.clase || "",
           categoria: f.categoria || "",
           tramosOK: f.tramosOK || 0,
+          totalTramosMs: f.totalTramosMs || 0,
+          totalTramos: f.totalTramos || "",
+          penalizacionMs: f.penalizacionMs || 0,
+          penalizacion: f.penalizacion || "",
           totalMs: f.totalMs || 0,
           total: f.total || ""
         }
@@ -2956,7 +3288,18 @@ function construirClasificacionPublicaJSON(){
           motivo: ab.motivo || "",
           timestamp: ab.timestamp || ""
         };
-      })
+      }),
+      penalizaciones: obtenerListaPenalizacionesFiltradas(filtros).map(p=>({
+        dorsal: p.dorsal || "",
+        art: p.art || "",
+        motivo: p.motivo || "",
+        cantidad: p.cantidad || 0,
+        penalizacionMs: p.penalizacionMs || 0,
+        penalizacion: p.penalizacion || "",
+        estado: p.estado || "",
+        observaciones: p.observaciones || "",
+        timestamp: p.timestamp || ""
+      }))
     };
   }
 
@@ -3141,6 +3484,631 @@ function initPublicacionJSON(){
 }
 
 initPublicacionJSON();
+
+
+/* ================= SUPER RALLYE CARA 2026 =================
+   Mantiene el abandono original y añade una capa SR por dorsal.
+   Regla aplicada:
+   - TC no realizado: peor tiempo real disponible del TC + 1 minuto.
+   - Abandono en enlace sin TC sacrificado: +2 minutos.
+   - Para clasificar en SR debe estar autorizado y entrar a Parque Cerrado final.
+*/
+let superRallyCache = {};
+let offSuperRallyCurrent = null;
+let offSuperRallyGestion = null;
+
+function normalizarBool(v){
+  return v === true || v === "true" || v === 1 || v === "1" || v === "SI" || v === "SÍ";
+}
+
+function obtenerSuperRallyDorsal(num){
+  return superRallyCache?.[String(num)] || null;
+}
+
+function dorsalTieneSuperRally(num){
+  const sr = obtenerSuperRallyDorsal(num);
+  return !!(sr && sr.activo !== false);
+}
+
+function superRallyValido(num){
+  const sr = obtenerSuperRallyDorsal(num);
+  return !!(sr && sr.activo !== false && normalizarBool(sr.autorizado) && normalizarBool(sr.parqueCerradoFinal));
+}
+
+function estadoSuperRally(num){
+  const sr = obtenerSuperRallyDorsal(num);
+  if(!sr || sr.activo === false) return "";
+  if(superRallyValido(num)) return "SR";
+  if(!normalizarBool(sr.autorizado)) return "SR NO AUTORIZADO";
+  if(!normalizarBool(sr.parqueCerradoFinal)) return "SR SIN PARQUE CERRADO";
+  return "SR NO CLASIFICADO";
+}
+
+function refrescarVistaClasificacionSiAbiertaSR(){
+  const prev = document.getElementById("vistaPreviaClasificacion");
+  if(prev && prev.innerHTML.trim()){
+    try{ mostrarVistaPreviaClasificacion(); }catch(e){}
+  }
+  try{ pintarSuperRally(); }catch(e){}
+}
+
+function engancharSuperRallyActuales(id){
+  superRallyCache = {};
+  if(offSuperRallyCurrent) offSuperRallyCurrent();
+  if(!id) return;
+  offSuperRallyCurrent = onValue(ref(db, `IDs/${id}/superRally`), snap=>{
+    superRallyCache = snap.val() || {};
+    pintarRecuadrosTC();
+    refrescarVistaClasificacionSiAbiertaSR();
+  });
+}
+
+function engancharSuperRallyGestion(id){
+  if(offSuperRallyGestion) offSuperRallyGestion();
+  if(!id){
+    superRallyCache = {};
+    pintarSuperRally();
+    return;
+  }
+  offSuperRallyGestion = onValue(ref(db, `IDs/${id}/superRally`), snap=>{
+    superRallyCache = snap.val() || {};
+    pintarSuperRally();
+    refrescarVistaClasificacionSiAbiertaSR();
+  });
+}
+
+function idGestionSuperRally(){
+  return $("selectorID_PDF")?.value || currentID || $("selectorID_AB")?.value || $("selectorID")?.value || "";
+}
+
+function insertarPanelSuperRally(){
+  if(document.getElementById("bloqueSuperRally")) return;
+  const tablaPen = document.getElementById("tablaPenalizaciones");
+  if(!tablaPen) return;
+  const bloquePen = tablaPen.closest("div[style]") || tablaPen.parentElement;
+  const div = document.createElement("div");
+  div.id = "bloqueSuperRally";
+  div.setAttribute("style", "margin-top:14px; margin-bottom:14px; padding:12px; border:1px solid #333; border-radius:8px; background:#151515;");
+  div.innerHTML = `
+    <h4 style="margin:0 0 10px 0;">Super Rallye</h4>
+    <div class="small" style="margin-bottom:8px;">El abandono se conserva. Si el SR es válido, el dorsal vuelve a clasificación con los TC no realizados calculados como peor tiempo del TC + 1 minuto, o +2 minutos si fue abandono en enlace sin sacrificar TC.</div>
+    <div style="margin-bottom:10px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+      <div>Dorsal:<br><input id="srDorsal" style="width:80px" placeholder="Nº"></div>
+      <div>TC / punto abandono:<br><select id="srTC" style="min-width:110px"></select></div>
+      <div>Tipo:<br>
+        <select id="srTipo" style="min-width:160px">
+          <option value="TC">Abandono en TC / TC no realizado</option>
+          <option value="ENLACE">Abandono en enlace</option>
+        </select>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; padding-bottom:6px;"><input id="srAutorizado" type="checkbox" checked><label for="srAutorizado">Autorizado</label></div>
+      <div style="display:flex; align-items:center; gap:6px; padding-bottom:6px;"><input id="srParque" type="checkbox" checked><label for="srParque">Parque cerrado final</label></div>
+    </div>
+    <div style="margin-bottom:10px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+      <div style="flex:1; min-width:320px;">Observaciones:<br><input id="srObs" style="width:100%; min-width:320px" placeholder="Ej: autorizado por Dirección de Carrera / verificado por Comisario Técnico"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn" onclick="guardarSuperRally()">Guardar SR</button>
+        <button class="btn" onclick="limpiarFormularioSuperRally()">Limpiar</button>
+      </div>
+    </div>
+    <div id="estadoSuperRally" class="small" style="margin-bottom:8px;"></div>
+    <table id="tablaSuperRally">
+      <thead>
+        <tr><th>Dorsal</th><th>TC abandono</th><th>Tipo</th><th>Aut.</th><th>Parque final</th><th>Estado</th><th>Detalle cálculo</th><th>Obs.</th><th>Acción</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>`;
+  bloquePen.insertAdjacentElement("afterend", div);
+  cargarSelectorTCSR();
+}
+
+function parchearCabeceraAbandonosSR(){
+  const tr = document.querySelector("#tablaAbandonos thead tr");
+  if(!tr || tr.dataset.srPatch === "1") return;
+  const th = document.createElement("th");
+  th.textContent = "SR";
+  const accion = tr.lastElementChild;
+  tr.insertBefore(th, accion);
+  tr.dataset.srPatch = "1";
+}
+
+function cargarSelectorTCSR(){
+  const sel = document.getElementById("srTC");
+  if(!sel) return;
+  const prev = sel.value;
+  const tcs = obtenerListaTCs();
+  sel.innerHTML = tcs.map(tc=>`<option value="${tc}">${tc}</option>`).join("");
+  if(prev && tcs.includes(prev)) sel.value = prev;
+  if(!sel.value && tcs.length) sel.value = tcs[0];
+}
+
+function limpiarFormularioSuperRally(){
+  if($("srDorsal")) $("srDorsal").value = "";
+  if($("srObs")) $("srObs").value = "";
+  if($("srTipo")) $("srTipo").value = "TC";
+  if($("srAutorizado")) $("srAutorizado").checked = true;
+  if($("srParque")) $("srParque").checked = true;
+  if($("estadoSuperRally")) $("estadoSuperRally").textContent = "";
+}
+
+function cargarFormularioSuperRally(dorsal){
+  const sr = obtenerSuperRallyDorsal(dorsal) || {};
+  const ab = obtenerAbandonoDorsal(dorsal) || {};
+  insertarPanelSuperRally();
+  if($("srDorsal")) $("srDorsal").value = dorsal || "";
+  cargarSelectorTCSR();
+  if($("srTC")){
+    const valor = sr.tcAbandono || ab.tc || $("srTC").value;
+    if(valor && [...$("srTC").options].some(o=>o.value === valor)) $("srTC").value = valor;
+  }
+  if($("srTipo")) $("srTipo").value = sr.tipoAbandono || "TC";
+  if($("srAutorizado")) $("srAutorizado").checked = sr.autorizado == null ? true : normalizarBool(sr.autorizado);
+  if($("srParque")) $("srParque").checked = sr.parqueCerradoFinal == null ? true : normalizarBool(sr.parqueCerradoFinal);
+  if($("srObs")) $("srObs").value = sr.observaciones || "";
+  mostrarPanel("clasificaciones");
+  const el = document.getElementById("bloqueSuperRally");
+  if(el) el.scrollIntoView({behavior:"smooth", block:"center"});
+}
+
+async function guardarSuperRally(){
+  const id = idGestionSuperRally();
+  const dorsal = normalizarDorsal($("srDorsal")?.value || "");
+  if(!id){ alert("No hay ID seleccionado."); return; }
+  if(!esDorsalValidoSoloNumeros(dorsal)){ alert("Dorsal inválido. Debe ser SOLO números."); return; }
+  const ab = obtenerAbandonoDorsal(dorsal);
+  if(!ab){
+    const ok = confirm(`El dorsal ${dorsal} no tiene abandono señalado. ¿Guardar Super Rallye igualmente?`);
+    if(!ok) return;
+  }
+  const tc = $("srTC")?.value || ab?.tc || "";
+  const tipo = $("srTipo")?.value || "TC";
+  const autorizado = !!$("srAutorizado")?.checked;
+  const parqueCerradoFinal = !!$("srParque")?.checked;
+  const observaciones = String($("srObs")?.value || "").trim();
+  await set(ref(db, `IDs/${id}/superRally/${dorsal}`), {
+    dorsal,
+    activo: true,
+    tcAbandono: tc,
+    tipoAbandono: tipo,
+    autorizado,
+    parqueCerradoFinal,
+    observaciones,
+    timestamp: Date.now()
+  });
+  if($("estadoSuperRally")) $("estadoSuperRally").textContent = `Super Rallye guardado para dorsal ${dorsal}.`;
+  limpiarFormularioSuperRally();
+}
+
+async function convertirAbandonoASuperRally(dorsal){
+  const id = idGestionSuperRally() || $("selectorID_AB")?.value || currentID || "";
+  if(!id || !dorsal) return;
+  const ab = obtenerAbandonoDorsal(dorsal);
+  if(!ab){ alert("No se encontró el abandono de ese dorsal."); return; }
+  const ok = confirm(`Convertir el abandono del dorsal ${dorsal} en Super Rallye válido?\n\nSe conserva el abandono y se marcará como autorizado y con entrada a parque cerrado final. Después puedes editarlo en Clasificaciones > Super Rallye.`);
+  if(!ok) return;
+  await set(ref(db, `IDs/${id}/superRally/${dorsal}`), {
+    dorsal: String(dorsal),
+    activo: true,
+    tcAbandono: ab.tc || "",
+    tipoAbandono: "TC",
+    autorizado: true,
+    parqueCerradoFinal: true,
+    observaciones: ab.motivo ? `Origen abandono: ${ab.motivo}` : "Convertido desde abandono",
+    timestamp: Date.now()
+  });
+  if($("estadoAbandonos")) $("estadoAbandonos").textContent = `Dorsal ${dorsal} marcado como Super Rallye.`;
+}
+
+async function eliminarSuperRally(dorsal){
+  const id = idGestionSuperRally();
+  if(!id || !dorsal) return;
+  const ok = confirm(`¿Quitar Super Rallye del dorsal ${dorsal}?\n\nEl abandono original se mantiene.`);
+  if(!ok) return;
+  await remove(ref(db, `IDs/${id}/superRally/${dorsal}`));
+}
+
+function peorTiempoRealTC(tc, dorsalExcluir = ""){
+  const filas = calcularClasificacionTC(tc).filter(f=>{
+    if(f.tiempoMs == null) return false;
+    if(String(f.dorsal) === String(dorsalExcluir)) return false;
+    const d = inscritosCache?.[f.dorsal] || {};
+    if(d.clasificar !== true) return false;
+    if(dorsalTieneEstadoNoClasificable(f.dorsal)) return false;
+    return true;
+  });
+  if(!filas.length) return null;
+  return Math.max(...filas.map(f=>f.tiempoMs));
+}
+
+function calcularDetalleSuperRally(dorsal){
+  const sr = obtenerSuperRallyDorsal(dorsal);
+  const tcs = obtenerListaTCs();
+  const reales = {};
+  tcs.forEach(tc=>{
+    const f = calcularClasificacionTC(tc).find(x=>String(x.dorsal) === String(dorsal));
+    if(f && f.tiempoMs != null) reales[tc] = f.tiempoMs;
+  });
+  const missing = tcs.filter(tc=>reales[tc] == null);
+  let asignadosMs = 0;
+  let penalizacionEnlaceMs = 0;
+  let pendiente = false;
+  const detalleTCs = [];
+  if(sr && sr.activo !== false){
+    missing.forEach(tc=>{
+      const peor = peorTiempoRealTC(tc, dorsal);
+      if(peor == null){
+        pendiente = true;
+        detalleTCs.push({tc, pendiente:true, texto:`${tc}: pendiente peor tiempo`});
+      }else{
+        const asignado = peor + 60000;
+        asignadosMs += asignado;
+        detalleTCs.push({tc, peorMs:peor, asignadoMs:asignado, texto:`${tc}: ${msToDur(peor)} + 01:00.000 = ${msToDur(asignado)}`});
+      }
+    });
+    if(String(sr.tipoAbandono || "TC") === "ENLACE" && missing.length === 0){
+      penalizacionEnlaceMs = 120000;
+    }
+  }
+  return {
+    realesCount: Object.keys(reales).length,
+    totalTCs: tcs.length,
+    missing,
+    asignadosMs,
+    penalizacionEnlaceMs,
+    pendiente,
+    detalleTCs,
+    resumen: pendiente ? "Pendiente peor tiempo" : (detalleTCs.length ? detalleTCs.map(x=>x.texto).join(" | ") : (penalizacionEnlaceMs ? "+02:00.000 enlace" : "Sin TC pendiente"))
+  };
+}
+
+function obtenerListaSuperRallyFiltrada(filtros = {}){
+  return Object.entries(superRallyCache || {})
+    .map(([key,sr])=>({key, ...sr}))
+    .filter(sr=>sr && sr.activo !== false && String(sr.dorsal || key || "").trim())
+    .map(sr=>({ ...sr, dorsal: String(sr.dorsal || sr.key) }))
+    .filter(sr=>{
+      const d = inscritosCache?.[sr.dorsal] || {};
+      if(Object.keys(filtros || {}).length && !coincideFiltrosInscrito(d, filtros)) return false;
+      return true;
+    })
+    .sort((a,b)=>Number(a.dorsal||0)-Number(b.dorsal||0));
+}
+
+function pintarSuperRally(){
+  insertarPanelSuperRally();
+  cargarSelectorTCSR();
+  const tb = document.querySelector("#tablaSuperRally tbody");
+  if(!tb) return;
+  tb.innerHTML = "";
+  const filtros = obtenerFiltrosPDF ? obtenerFiltrosPDF() : {};
+  const lista = obtenerListaSuperRallyFiltrada(filtros);
+  lista.forEach(sr=>{
+    const detalle = calcularDetalleSuperRally(sr.dorsal);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${sr.dorsal || ""}</td>
+      <td>${sr.tcAbandono || ""}</td>
+      <td>${sr.tipoAbandono || "TC"}</td>
+      <td>${normalizarBool(sr.autorizado) ? "Sí" : "No"}</td>
+      <td>${normalizarBool(sr.parqueCerradoFinal) ? "Sí" : "No"}</td>
+      <td>${estadoSuperRally(sr.dorsal)}</td>
+      <td style="text-align:left">${detalle.resumen}</td>
+      <td style="text-align:left">${sr.observaciones || ""}</td>
+      <td><button class="tc-add" onclick="cargarFormularioSuperRally('${sr.dorsal}')">Editar</button> <button class="tc-close" onclick="eliminarSuperRally('${sr.dorsal}')">Quitar SR</button></td>`;
+    tb.appendChild(tr);
+  });
+  const estado = document.getElementById("estadoSuperRally");
+  if(estado) estado.textContent = `Super Rallye: ${lista.length}`;
+}
+
+/* Overwrite mínimo de abandonos para mostrar opción SR sin borrar el abandono */
+engancharAbandonos = function(){
+  const id = $("selectorID_AB").value;
+  const tbody = $("tablaAbandonos").querySelector("tbody");
+  parchearCabeceraAbandonosSR();
+  tbody.innerHTML = "";
+  if(offAbandonos) offAbandonos();
+  if(!id){
+    $("estadoAbandonos").textContent = "No hay ID seleccionado.";
+    return;
+  }
+  offAbandonos = onValue(ref(db, `IDs/${id}/abandonos`), snap=>{
+    abandonosCache = snap.val() || {};
+    tbody.innerHTML = "";
+    const filas = Object.values(abandonosCache).sort((a,b)=>(b?.timestamp||0)-(a?.timestamp||0));
+    filas.forEach(f=>{
+      const dorsal = String(f?.dorsal || "");
+      const tr = document.createElement("tr");
+      const tdD = document.createElement("td"); tdD.textContent = dorsal;
+      const tdTC = document.createElement("td"); tdTC.textContent = f?.tc || "";
+      const tdM = document.createElement("td"); tdM.textContent = f?.motivo || "";
+      const tdF = document.createElement("td"); tdF.textContent = formatearFechaAbandono(f?.timestamp);
+      const tdSR = document.createElement("td");
+      if(dorsalTieneSuperRally(dorsal)){
+        tdSR.innerHTML = `<span class="ok">${estadoSuperRally(dorsal)}</span> <button class="tc-add" onclick="cargarFormularioSuperRally('${dorsal}')">Editar</button>`;
+      }else{
+        const btnSR = document.createElement("button");
+        btnSR.className = "tc-add";
+        btnSR.textContent = "Pasar a SR";
+        btnSR.onclick = ()=> convertirAbandonoASuperRally(dorsal);
+        tdSR.appendChild(btnSR);
+      }
+      const tdA = document.createElement("td");
+      const btn = document.createElement("button");
+      btn.className = "btn";
+      btn.textContent = "Quitar";
+      btn.onclick = ()=> eliminarAbandono(dorsal);
+      tdA.appendChild(btn);
+      tr.appendChild(tdD); tr.appendChild(tdTC); tr.appendChild(tdM); tr.appendChild(tdF); tr.appendChild(tdSR); tr.appendChild(tdA);
+      tbody.appendChild(tr);
+    });
+    $("estadoAbandonos").textContent = `ID ${id} · Abandonos: ${filas.length}`;
+  });
+};
+
+eliminarAbandono = async function(dorsal){
+  const id = $("selectorID_AB").value;
+  if(!id || !dorsal) return;
+  if(dorsalTieneSuperRally(dorsal)){
+    const okSR = confirm(`El dorsal ${dorsal} está marcado como Super Rallye.\n\nAceptar: quitar solo el abandono y mantener SR.\nCancelar: no hacer nada.`);
+    if(!okSR) return;
+  }else{
+    const pasarSR = confirm(`¿Quieres convertir el abandono del dorsal ${dorsal} en Super Rallye antes de quitarlo?\n\nAceptar = convertir a SR.\nCancelar = preguntar si se elimina sin SR.`);
+    if(pasarSR){ await convertirAbandonoASuperRally(dorsal); return; }
+    const ok = confirm(`¿Eliminar abandono del dorsal ${dorsal} sin Super Rallye?`);
+    if(!ok) return;
+  }
+  await remove(ref(db, `IDs/${id}/abandonos/${dorsal}`));
+};
+
+/* Abandonos listados en clasificaciones: los SR activos se muestran en su propia sección */
+obtenerListaAbandonosFiltrados = function(filtros = {}, tc = ""){
+  return Object.values(abandonosCache || {})
+    .filter(ab=>ab && String(ab.dorsal || "").trim())
+    .filter(ab=>!dorsalTieneSuperRally(ab.dorsal))
+    .filter(ab=>!tc || String(ab.tc || "") === String(tc))
+    .filter(ab=>{
+      const d = inscritosCache?.[ab.dorsal] || {};
+      if(Object.keys(filtros || {}).length && !coincideFiltrosInscrito(d, filtros)) return false;
+      return true;
+    })
+    .sort((a,b)=>(b?.timestamp||0)-(a?.timestamp||0));
+};
+
+/* Clasificable: normal con todos los TC; abandono solo si SR válido */
+dorsalClasificable = function(num){
+  const d = inscritosCache?.[String(num)] || inscritosCache?.[num] || {};
+  if(d.clasificar !== true) return false;
+  if(dorsalTieneEstadoNoClasificable(num)) return false;
+  if(dorsalTieneAbandono(num) && !superRallyValido(num)) return false;
+  if(dorsalTieneSuperRally(num) && !superRallyValido(num)) return false;
+  return true;
+};
+
+calcularGeneralFiltrado = function(filtros = {}){
+  const tcs = obtenerListaTCs();
+  const acc = {};
+
+  Object.keys(inscritosCache || {}).forEach(dorsal=>{
+    const d = inscritosCache?.[dorsal] || {};
+    if(d.clasificar !== true) return;
+    if(dorsalTieneEstadoNoClasificable(dorsal)) return;
+    if(Object.keys(filtros || {}).length && !coincideFiltrosInscrito(d, filtros)) return;
+
+    const sr = obtenerSuperRallyDorsal(dorsal);
+    const esSR = dorsalTieneSuperRally(dorsal);
+    const srValido = superRallyValido(dorsal);
+    if(dorsalTieneAbandono(dorsal) && !srValido) return;
+    if(esSR && !srValido) return;
+
+    let totalTramosMs = 0;
+    let tramosReales = 0;
+    let tramosConTiempo = 0;
+    let tramosAsignadosSR = 0;
+    let detalleSR = null;
+    let pendienteSR = false;
+
+    tcs.forEach(tc=>{
+      const f = calcularClasificacionTC(tc).find(x=>String(x.dorsal) === String(dorsal));
+      if(f && f.tiempoMs != null){
+        totalTramosMs += f.tiempoMs;
+        tramosReales += 1;
+        tramosConTiempo += 1;
+      }
+    });
+
+    if(tcs.length && tramosConTiempo < tcs.length){
+      if(!esSR || !srValido) return;
+      detalleSR = calcularDetalleSuperRally(dorsal);
+      if(detalleSR.pendiente) pendienteSR = true;
+      if(pendienteSR) return;
+      totalTramosMs += detalleSR.asignadosMs;
+      tramosAsignadosSR = detalleSR.missing.length;
+      tramosConTiempo = tramosReales + tramosAsignadosSR;
+    }else if(esSR){
+      detalleSR = calcularDetalleSuperRally(dorsal);
+    }
+
+    const pen = resumenPenalizacionesDorsal(dorsal);
+    const penalizacionReglamentoMs = pen.penalizacionMs || 0;
+    const penalizacionSRMs = esSR && detalleSR ? (detalleSR.penalizacionEnlaceMs || 0) : 0;
+    const penalizacionMs = penalizacionReglamentoMs + penalizacionSRMs;
+    const totalFinalMs = totalTramosMs + penalizacionMs;
+
+    acc[dorsal] = {
+      dorsal,
+      piloto: d.piloto || "",
+      copiloto: d.copiloto || "",
+      vehiculo: d.vehiculo || "",
+      grupo: d.grupo || "",
+      clase: d.clase || "",
+      categoria: d.categoria || "",
+      agrupacion: d.agrupacion || "",
+      copa: d.copa || "",
+      totalTramosMs,
+      penalizacionMs,
+      penalizacionReglamentoMs,
+      penalizacionSRMs,
+      totalMs: totalFinalMs,
+      tramosOK: esSR ? `${tramosReales}/${tcs.length} SR` : `${tramosReales}/${tcs.length}`,
+      tramosReales,
+      tramosAsignadosSR,
+      estado: esSR ? "SR" : "",
+      puntos: esSR ? "1/2 puntos si entra en puntos" : "",
+      totalTramos: msToDur(totalTramosMs),
+      penalizacion: penalizacionMs ? msToDur(penalizacionMs) : "",
+      total: msToDur(totalFinalMs),
+      detalleSR: detalleSR ? detalleSR.resumen : ""
+    };
+  });
+
+  const lista = Object.values(acc);
+  lista.sort((a,b)=>a.totalMs-b.totalMs);
+  return lista;
+};
+
+mostrarVistaPreviaClasificacion = function(){
+  const cont = document.getElementById("vistaPreviaClasificacion");
+  if(!cont) return;
+  const tipo = $("selectorTipoPDF")?.value || "GENERAL";
+  const filtros = obtenerFiltrosPDF();
+  let html = "<h4>Vista previa clasificación</h4>";
+
+  if(tipo === "GENERAL"){
+    const lista = calcularGeneralFiltrado(filtros);
+    html += "<table style='width:100%;border-collapse:collapse'>";
+    html += "<tr><th>POS</th><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th><th>Tramos OK</th><th>Tramos</th><th>Pen.</th><th>Total</th><th>Estado</th></tr>";
+    lista.forEach((f, i)=>{
+      html += `<tr><td>${i+1}</td><td>${f.dorsal}</td><td>${f.piloto||""}</td><td>${f.copiloto||""}</td><td>${f.vehiculo||""}</td><td>${f.tramosOK}</td><td>${f.totalTramos||""}</td><td>${f.penalizacion||""}</td><td>${f.total}</td><td>${f.estado||""}</td></tr>`;
+    });
+    html += "</table>";
+
+    const srLista = obtenerListaSuperRallyFiltrada(filtros);
+    if(srLista.length){
+      html += "<h4 style='margin-top:14px;'>Super Rallye</h4>";
+      html += "<table style='width:100%;border-collapse:collapse'>";
+      html += "<tr><th>Dorsal</th><th>TC abandono</th><th>Tipo</th><th>Estado</th><th>Detalle cálculo</th><th>Obs.</th></tr>";
+      srLista.forEach(sr=>{
+        const det = calcularDetalleSuperRally(sr.dorsal);
+        html += `<tr><td>${sr.dorsal||""}</td><td>${sr.tcAbandono||""}</td><td>${sr.tipoAbandono||""}</td><td>${estadoSuperRally(sr.dorsal)}</td><td style="text-align:left">${det.resumen}</td><td style="text-align:left">${sr.observaciones||""}</td></tr>`;
+      });
+      html += "</table>";
+    }
+
+    const abandonos = obtenerListaAbandonosFiltrados(filtros);
+    if(abandonos.length){
+      html += "<h4 style='margin-top:14px;'>Abandonos</h4>";
+      html += "<table style='width:100%;border-collapse:collapse'>";
+      html += "<tr><th>Dorsal</th><th>Participantes</th><th>TC Abandono</th><th>Motivo</th></tr>";
+      abandonos.forEach((ab)=>{
+        const d = inscritosCache?.[ab.dorsal] || {};
+        html += `<tr><td>${ab.dorsal||""}</td><td>${d.piloto||""}${d.copiloto ? " / " + d.copiloto : ""}</td><td>${ab.tc||""}</td><td>${ab.motivo||""}</td></tr>`;
+      });
+      html += "</table>";
+    }
+
+    const penalizaciones = obtenerListaPenalizacionesFiltradas(filtros);
+    if(penalizaciones.length){
+      html += "<h4 style='margin-top:14px;'>Penalizaciones</h4>";
+      html += "<table style='width:100%;border-collapse:collapse'>";
+      html += "<tr><th>Dorsal</th><th>Art.</th><th>Motivo</th><th>Pen.</th><th>Estado</th><th>Obs.</th></tr>";
+      penalizaciones.forEach((p)=>{
+        html += `<tr><td>${p.dorsal||""}</td><td>${p.art||""}</td><td style="text-align:left">${p.motivo||""}</td><td>${p.penalizacion||""}</td><td>${p.estado||""}</td><td style="text-align:left">${p.observaciones||""}</td></tr>`;
+      });
+      html += "</table>";
+    }
+  }else{
+    const tc = $("selectorTramoPDF")?.value || obtenerListaTCs()[0] || "";
+    const lista = calcularTramoFiltrado(tc, filtros);
+    html += "<table style='width:100%;border-collapse:collapse'>";
+    html += "<tr><th>POS</th><th>TC</th><th>Nº</th><th>Piloto</th><th>Copiloto</th><th>Vehículo</th><th>Salida</th><th>Llegada</th><th>Tiempo</th></tr>";
+    lista.forEach((f, i)=>{
+      html += `<tr><td>${i+1}</td><td>${tc}</td><td>${f.dorsal}</td><td>${f.piloto||""}</td><td>${f.copiloto||""}</td><td>${f.vehiculo||""}</td><td>${f.salida||""}</td><td>${f.llegada||""}</td><td>${f.tiempo||""}</td></tr>`;
+    });
+    html += "</table>";
+  }
+  cont.innerHTML = html;
+};
+
+construirClasificacionPublicaJSON = function(){
+  const id = $("selectorID_PDF")?.value || currentID || $("selectorID")?.value || "";
+  const tipo = $("selectorTipoPDF")?.value || "GENERAL";
+  const filtros = obtenerFiltrosPDF ? obtenerFiltrosPDF() : {};
+  const actualizadoIso = new Date().toISOString();
+  const actualizadoLocal = new Date().toLocaleString("es-ES");
+  const base = { actualizadoIso, actualizadoLocal, id, tipo, filtros, inscritos: Object.keys(inscritosCache || {}).length };
+  if(tipo === "GENERAL"){
+    const lista = calcularGeneralFiltrado(filtros);
+    const abandonos = obtenerListaAbandonosFiltrados(filtros);
+    return {
+      ...base,
+      clasificacion_general: lista.map((f,i)=>({
+        pos:i+1, dorsal:f.dorsal||"", piloto:f.piloto||"", copiloto:f.copiloto||"", vehiculo:f.vehiculo||"",
+        grupo:f.grupo||"", copa:f.copa||"", agrupacion:f.agrupacion||"", clase:f.clase||"", categoria:f.categoria||"",
+        tramosOK:f.tramosOK||0, tramosReales:f.tramosReales||0, tramosAsignadosSR:f.tramosAsignadosSR||0,
+        totalTramosMs:f.totalTramosMs||0, totalTramos:f.totalTramos||"", penalizacionMs:f.penalizacionMs||0,
+        penalizacionReglamentoMs:f.penalizacionReglamentoMs||0, penalizacionSRMs:f.penalizacionSRMs||0,
+        penalizacion:f.penalizacion||"", totalMs:f.totalMs||0, total:f.total||"", estado:f.estado||"", puntos:f.puntos||"", detalleSR:f.detalleSR||""
+      })),
+      superRally: obtenerListaSuperRallyFiltrada(filtros).map(sr=>({
+        dorsal:sr.dorsal||"", tcAbandono:sr.tcAbandono||"", tipoAbandono:sr.tipoAbandono||"", autorizado:!!sr.autorizado,
+        parqueCerradoFinal:!!sr.parqueCerradoFinal, estado:estadoSuperRally(sr.dorsal), detalle:calcularDetalleSuperRally(sr.dorsal).resumen,
+        observaciones:sr.observaciones||"", timestamp:sr.timestamp||""
+      })),
+      abandonos: abandonos.map(ab=>{ const d=inscritosCache?.[ab.dorsal]||{}; return {dorsal:ab.dorsal||"", piloto:d.piloto||"", copiloto:d.copiloto||"", vehiculo:d.vehiculo||"", tc:ab.tc||"", motivo:ab.motivo||"", timestamp:ab.timestamp||""}; }),
+      penalizaciones: obtenerListaPenalizacionesFiltradas(filtros).map(p=>({dorsal:p.dorsal||"", art:p.art||"", motivo:p.motivo||"", cantidad:p.cantidad||0, penalizacionMs:p.penalizacionMs||0, penalizacion:p.penalizacion||"", estado:p.estado||"", observaciones:p.observaciones||"", timestamp:p.timestamp||""}))
+    };
+  }
+  const tc = $("selectorTramoPDF")?.value || obtenerListaTCs()[0] || "";
+  const lista = calcularTramoFiltrado(tc, filtros);
+  const abandonos = obtenerListaAbandonosFiltrados(filtros, tc);
+  return {
+    ...base,
+    tc,
+    clasificacion_tc: lista.map((f,i)=>({pos:i+1, tc, dorsal:f.dorsal||"", piloto:f.piloto||"", copiloto:f.copiloto||"", vehiculo:f.vehiculo||"", salida:f.salida||"", llegada:f.llegada||"", tiempoMs:f.tiempoMs??null, tiempo:f.tiempo||""})),
+    abandonos: abandonos.map(ab=>{ const d=inscritosCache?.[ab.dorsal]||{}; return {dorsal:ab.dorsal||"", piloto:d.piloto||"", copiloto:d.copiloto||"", vehiculo:d.vehiculo||"", tc:ab.tc||"", motivo:ab.motivo||"", timestamp:ab.timestamp||""}; })
+  };
+};
+
+/* Enlaces y arranque SR */
+const _engancharLecturasDeID_SR = engancharLecturasDeID;
+engancharLecturasDeID = function(id){
+  _engancharLecturasDeID_SR(id);
+  engancharSuperRallyActuales(id);
+};
+
+const _actualizarFiltrosPDF_SR = actualizarFiltrosPDF;
+actualizarFiltrosPDF = function(){
+  _actualizarFiltrosPDF_SR();
+  cargarSelectorTCSR();
+  pintarSuperRally();
+};
+
+if($("selectorID_PDF")){
+  $("selectorID_PDF").addEventListener("change", ()=>{
+    engancharSuperRallyGestion($("selectorID_PDF").value || currentID || "");
+  });
+}
+if($("selectorID_AB")){
+  $("selectorID_AB").addEventListener("change", ()=>{
+    engancharSuperRallyGestion($("selectorID_AB").value || currentID || "");
+  });
+}
+
+window.guardarSuperRally = guardarSuperRally;
+window.limpiarFormularioSuperRally = limpiarFormularioSuperRally;
+window.eliminarSuperRally = eliminarSuperRally;
+window.cargarFormularioSuperRally = cargarFormularioSuperRally;
+window.convertirAbandonoASuperRally = convertirAbandonoASuperRally;
+window.eliminarAbandono = eliminarAbandono;
+window.mostrarVistaPreviaClasificacion = mostrarVistaPreviaClasificacion;
+
+insertarPanelSuperRally();
+parchearCabeceraAbandonosSR();
+engancharSuperRallyActuales(currentID || $("selectorID")?.value || "");
+engancharSuperRallyGestion(idGestionSuperRally());
+try{ pintarAbandonos(); }catch(e){}
+try{ pintarSuperRally(); }catch(e){}
 
 </script>
 

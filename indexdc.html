@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="manifest" href="manifest-dc.json">
+<meta name="theme-color" content="#0a0f0a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Panel DC">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Heidegger Race · Panel TC</title>
 <style>
   :root{
@@ -717,6 +724,14 @@ $('btnPantalla').addEventListener('click', async () => {
 
 syncFullscreenMode();
 cargarIDs();
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+  });
+}
 </script>
 </body>
 </html>

@@ -75,6 +75,82 @@ th,td{
 .ok{ color:#b7ffb7; }
 .err{ color:#ffb3b3; }
 
+
+
+/* ======= PUESTOS: conexiones de terminales ======= */
+.puestos-toolbar{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+  margin:8px 0 12px 0;
+}
+.puestos-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(170px, 1fr));
+  gap:10px;
+  margin-top:12px;
+}
+.puesto-card{
+  background:#151515;
+  border:1px solid #333;
+  border-radius:10px;
+  padding:10px;
+  min-height:78px;
+}
+.puesto-card.ok{
+  border-color:#00aa44;
+  box-shadow:0 0 0 1px rgba(0,170,68,.25) inset;
+}
+.puesto-card.off{
+  border-color:#5a2a2a;
+  opacity:.85;
+}
+.puesto-card.salio{
+  border-color:#ff9800;
+  box-shadow:0 0 0 1px rgba(255,152,0,.30) inset, 0 0 14px rgba(255,152,0,.28);
+  opacity:.98;
+  animation: avisoSalida 1s ease-in-out infinite alternate;
+}
+@keyframes avisoSalida{
+  from{ box-shadow:0 0 0 1px rgba(255,152,0,.30) inset, 0 0 8px rgba(255,152,0,.22); }
+  to{ box-shadow:0 0 0 1px rgba(255,152,0,.65) inset, 0 0 22px rgba(255,152,0,.55); }
+}
+.puestos-alerta{
+  display:inline-block;
+  margin-left:10px;
+  padding:3px 8px;
+  border:1px solid #ff9800;
+  border-radius:999px;
+  color:#ffd08a;
+  background:rgba(255,152,0,.12);
+  font-weight:bold;
+}
+.puesto-title{
+  font-weight:bold;
+  font-size:15px;
+  margin-bottom:6px;
+}
+.puesto-status{
+  font-weight:bold;
+  margin-bottom:5px;
+}
+.puesto-ok{ color:#b7ffb7; }
+.puesto-off{ color:#ffb3b3; }
+.puesto-salio{ color:#ffd08a; }
+.puesto-meta{
+  font-size:12px;
+  opacity:.95;
+  line-height:1.35;
+  word-break:break-word;
+}
+.puesto-map-link{
+  color:#b7ffb7;
+  font-weight:bold;
+  text-decoration:none;
+}
+.puesto-map-link:hover{ text-decoration:underline; }
+
 /* ======= TIEMPOS: botones TC y recuadros ======= */
 .tc-buttons{
   display:flex;
@@ -335,6 +411,7 @@ th,td{
 <div class="menu">
   <button class="btn" onclick="mostrarPanel('crearRally')">Crear Rally</button>
   <button class="btn" onclick="mostrarPanel('inscritos')">Inscritos</button>
+  <button class="btn" onclick="mostrarPanel('puestos')">Puestos</button>
   <button class="btn" onclick="mostrarPanel('tiempos')">Tiempos</button>
   <button class="btn" onclick="mostrarPanel('ch')">CH</button>
   <button class="btn" onclick="mostrarPanel('abandonos')">Abandonos</button>
@@ -438,6 +515,21 @@ th,td{
     </thead>
     <tbody></tbody>
   </table>
+</div>
+
+
+<!-- ================= PUESTOS ================= -->
+<div id="puestos" class="panel">
+  <h3>Puestos</h3>
+
+  <div class="puestos-toolbar">
+    <span>ID:</span>
+    <select id="selectorID_PUESTOS"></select>
+    <button class="export-btn" onclick="refrescarPuestos()">↻ Refrescar</button>
+  </div>
+
+  <div id="estadoPuestos" class="small">Selecciona un ID para ver las conexiones de los puestos.</div>
+  <div id="puestosGrid" class="puestos-grid"></div>
 </div>
 
 <!-- ================= TIEMPOS ================= -->
@@ -1027,18 +1119,21 @@ onValue(ref(db,"IDs"), snap=>{
 
   const selT = $("selectorID");
   const selI = $("idInscritos");
+  const selPuestos = $("selectorID_PUESTOS");
   const selCH_ID = $("selectorID_CH");
   const selAB_ID = $("selectorID_AB");
   const selPDF = $("selectorID_PDF");
 
   const prevT = selT.value;
   const prevI = selI.value;
+  const prevPuestos = selPuestos ? selPuestos.value : "";
   const prevCH = selCH_ID.value;
   const prevAB = selAB_ID.value;
   const prevPDF = selPDF.value;
 
   selT.innerHTML="";
   selI.innerHTML="";
+  if(selPuestos) selPuestos.innerHTML="";
   selCH_ID.innerHTML="";
   selAB_ID.innerHTML="";
   selPDF.innerHTML="";
@@ -1046,6 +1141,7 @@ onValue(ref(db,"IDs"), snap=>{
   ids.forEach(id=>{
     selT.innerHTML += `<option>${id}</option>`;
     selI.innerHTML += `<option>${id}</option>`;
+    if(selPuestos) selPuestos.innerHTML += `<option>${id}</option>`;
     selCH_ID.innerHTML += `<option>${id}</option>`;
     selAB_ID.innerHTML += `<option>${id}</option>`;
     selPDF.innerHTML += `<option>${id}</option>`;
@@ -1053,12 +1149,14 @@ onValue(ref(db,"IDs"), snap=>{
 
   if(prevT && ids.includes(prevT)) selT.value = prevT;
   if(prevI && ids.includes(prevI)) selI.value = prevI;
+  if(selPuestos && prevPuestos && ids.includes(prevPuestos)) selPuestos.value = prevPuestos;
   if(prevCH && ids.includes(prevCH)) selCH_ID.value = prevCH;
   if(prevAB && ids.includes(prevAB)) selAB_ID.value = prevAB;
   if(prevPDF && ids.includes(prevPDF)) selPDF.value = prevPDF;
 
   if(!selT.value && ids.length) selT.value = ids[0];
   if(!selI.value && ids.length) selI.value = ids[0];
+  if(selPuestos && !selPuestos.value && ids.length) selPuestos.value = ids[0];
   if(!selCH_ID.value && ids.length) selCH_ID.value = ids[0];
   if(!selAB_ID.value && ids.length) selAB_ID.value = ids[0];
   if(!selPDF.value && ids.length) selPDF.value = ids[0];
@@ -1071,6 +1169,10 @@ onValue(ref(db,"IDs"), snap=>{
     currentID = selT.value;
     selectedTCs.clear();
     engancharLecturasDeID(currentID);
+  }
+
+  if(selPuestos && selPuestos.value){
+    engancharPuestos(selPuestos.value);
   }
 
   rellenarSelectImagenes();
@@ -1091,6 +1193,12 @@ $("selectorID").addEventListener("change", ()=>{
 $("idInscritos").addEventListener("change", ()=>{
   engancharInscritos($("idInscritos").value);
 });
+
+if($("selectorID_PUESTOS")){
+  $("selectorID_PUESTOS").addEventListener("change", ()=>{
+    engancharPuestos($("selectorID_PUESTOS").value);
+  });
+}
 
 $("selectorID_PDF").addEventListener("change", ()=>{
   actualizarFiltrosPDF();
@@ -1123,6 +1231,273 @@ function engancharInscritos(id){
     pintarTablaInscritos();
   });
 }
+
+
+/* ================= PUESTOS: conexiones de terminales ================= */
+let puestosData = {};
+let offPuestos = null;
+let puestosIDActual = "";
+// Puestos que han estado conectados durante esta vista actual.
+// Se reinicia al abrir/refrescar PUESTOS para no enseñar desconexiones antiguas.
+let puestosVistosConectados = {};
+
+function escaparHTML(txt){
+  return String(txt ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function ordenarPuestos(a,b){
+  const ta = a.tc || "";
+  const tb = b.tc || "";
+  const na = parseInt(ta.replace(/\D+/g,"")||"0",10);
+  const nb = parseInt(tb.replace(/\D+/g,"")||"0",10);
+  if(na !== nb) return na - nb;
+  const orden = {S:1, LL:2};
+  const pa = a.puesto || "";
+  const pb = b.puesto || "";
+  const cha = parseInt(pa.replace(/\D+/g,"")||"999",10);
+  const chb = parseInt(pb.replace(/\D+/g,"")||"999",10);
+  return (orden[pa] || cha) - (orden[pb] || chb);
+}
+
+function esPuestoValido(tc, puesto){
+  const t = String(tc || "").toUpperCase();
+  const p = String(puesto || "").toUpperCase();
+  if(t === "TC0") return /^CH\d+$/.test(p);
+  return p === "S" || p === "LL";
+}
+
+function clavePuestoConexion(item){
+  return `${item.tc}||${item.puesto}`;
+}
+
+function leerConexionPuesto(datos){
+  if(!datos) return null;
+  return datos.conexion || datos.conectado || datos.estadoConexion || null;
+}
+
+function conexionActiva(cx){
+  if(!cx) return false;
+  // Importante: DESCONECTADO contiene la palabra CONECTADO, por eso
+  // primero comprobamos los estados negativos.
+  if(cx.ok === false || cx.conectado === false || cx.online === false) return false;
+  const estado = String(cx.estado || cx.status || "").toUpperCase();
+  if(estado.includes("DESCONECTADO") || estado.includes("SALIO") || estado.includes("SALIÓ") || estado.includes("OFFLINE")) return false;
+  if(cx.ok === true || cx.conectado === true || cx.online === true) return true;
+  return estado === "CONECTADO" || estado.includes("OK") || estado.includes("ONLINE");
+}
+
+function conexionSalida(cx){
+  if(!cx) return false;
+  const estado = String(cx.estado || cx.status || "").toUpperCase();
+  return cx.ok === false || cx.conectado === false || cx.online === false || estado.includes("DESCONECTADO") || estado.includes("SALIO") || estado.includes("SALIÓ") || estado.includes("OFFLINE");
+}
+
+function obtenerTimestampConexion(cx){
+  if(!cx) return "";
+  return cx.timestamp || cx.timeStamp || cx.fecha || cx.hora || cx.ultimo || cx.lastSeen || "";
+}
+
+function valorTiempoConexion(cx){
+  const valor = obtenerTimestampConexion(cx);
+  if(!valor) return 0;
+  if(typeof valor === "number") return valor;
+
+  const str = String(valor);
+
+  // MIT App Inventor puede guardar Reloj.Now como:
+  // java.util.GregorianCalendar{time=1782551472309,...}
+  const m = str.match(/time=(\d+)/i);
+  if(m) return Number(m[1]) || 0;
+
+  if(/^\d+$/.test(str)) return Number(str) || 0;
+
+  const d = new Date(str);
+  if(!isNaN(d.getTime())) return d.getTime();
+
+  return 0;
+}
+
+function usuarioConexion(cx){
+  return String(cx?.usuario || cx?.terminal || cx?.user || cx?.nombre || "").trim();
+}
+
+function formatearTimestampConexion(valor){
+  if(!valor) return "—";
+  if(typeof valor === "number"){
+    const d = new Date(valor);
+    if(!isNaN(d.getTime())) return d.toLocaleString("es-ES");
+  }
+  const str = String(valor);
+  if(/^\d+$/.test(str)){
+    const n = Number(str);
+    const d = new Date(n);
+    if(!isNaN(d.getTime()) && n > 100000000000) return d.toLocaleString("es-ES");
+  }
+  const d = new Date(str);
+  if(!isNaN(d.getTime())) return d.toLocaleString("es-ES");
+  return str;
+}
+
+function obtenerUbicacionConexion(cx){
+  if(!cx) return null;
+  const lat = cx.latitud ?? cx.latitude ?? cx.lat ?? cx.Latitude;
+  const lon = cx.longitud ?? cx.longitude ?? cx.lng ?? cx.lon ?? cx.Longitude;
+  if(lat === undefined || lon === undefined || lat === "" || lon === "") return null;
+  const nLat = Number(String(lat).replace(",", "."));
+  const nLon = Number(String(lon).replace(",", "."));
+  if(!Number.isFinite(nLat) || !Number.isFinite(nLon)) return null;
+  if(nLat === 0 && nLon === 0) return null;
+  return { lat:nLat, lon:nLon };
+}
+
+function obtenerListaPuestos(){
+  const lista = [];
+  Object.entries(puestosData || {}).forEach(([tc, tramo])=>{
+    const puestos = tramo?.puestos || {};
+    Object.entries(puestos).forEach(([puesto, datos])=>{
+      // Evita pintar claves accidentales creadas por MIT App Inventor
+      // como latitud, longitud, timestamp, tiempos, usuario, etc.
+      if(!esPuestoValido(tc, puesto)) return;
+      lista.push({ tc, puesto, datos, conexion: leerConexionPuesto(datos) });
+    });
+  });
+  return lista.sort(ordenarPuestos);
+}
+
+function pintarPuestos(){
+  const grid = $("puestosGrid");
+  const estado = $("estadoPuestos");
+  if(!grid || !estado) return;
+
+  grid.innerHTML = "";
+  const lista = obtenerListaPuestos();
+
+  if(!puestosIDActual){
+    estado.textContent = "Selecciona un ID para ver las conexiones de los puestos.";
+    return;
+  }
+
+  if(lista.length === 0){
+    estado.textContent = `ID ${puestosIDActual} · No hay puestos creados todavía.`;
+    return;
+  }
+
+  // Si el mismo usuario/terminal aparece en varios puestos,
+  // manda el evento más reciente, aunque sea desconexión.
+  // Así, si sale del último puesto, no vuelve a quedar verde en uno anterior.
+  const ultimoPorUsuario = {};
+  lista.forEach(item=>{
+    const cx = item.conexion;
+    const usuario = usuarioConexion(cx);
+    if(!usuario) return;
+
+    const clave = usuario.toUpperCase();
+    const tiempo = valorTiempoConexion(cx);
+    const anterior = ultimoPorUsuario[clave];
+
+    if(!anterior || tiempo >= anterior.tiempo){
+      ultimoPorUsuario[clave] = {
+        tiempo,
+        tc:item.tc,
+        puesto:item.puesto,
+        activa:conexionActiva(cx),
+        salio:conexionSalida(cx)
+      };
+    }
+  });
+
+  let conectados = 0;
+  let avisosSalida = 0;
+  lista.forEach(item=>{
+    const cx = item.conexion;
+    const usuarioReal = usuarioConexion(cx);
+    const usuario = usuarioReal || "—";
+    const claveUsuario = usuarioReal.toUpperCase();
+    const ultimo = claveUsuario ? ultimoPorUsuario[claveUsuario] : null;
+    const esPuestoActualDelUsuario = !ultimo || (ultimo.tc === item.tc && ultimo.puesto === item.puesto);
+    const okReal = conexionActiva(cx);
+    const salioReal = conexionSalida(cx);
+    const clavePuesto = clavePuestoConexion(item);
+
+    const usuarioActivoEnOtroPuesto = !!(ultimo && ultimo.activa && (ultimo.tc !== item.tc || ultimo.puesto !== item.puesto));
+
+    // Solo lanzamos aviso naranja si este puesto estuvo conectado durante
+    // la vista actual y ahora ha enviado DESCONECTADO.
+    // Si el mismo usuario ya se conectó en otro puesto, NO es avería/salida:
+    // se muestra como cambio de puesto, sin llamada de atención.
+    const salioVisible = salioReal && !!puestosVistosConectados[clavePuesto] && !usuarioActivoEnOtroPuesto;
+    if(salioVisible) avisosSalida++;
+    const ok = okReal && esPuestoActualDelUsuario && (!ultimo || ultimo.activa);
+    if(ok){
+      conectados++;
+      puestosVistosConectados[clavePuesto] = true;
+    }
+
+    let estadoTxt = cx?.estado || cx?.status || (ok ? "CONECTADO" : "SIN DATOS");
+    if(salioVisible){
+      estadoTxt = "DESCONECTADO";
+    }else if(usuarioActivoEnOtroPuesto){
+      estadoTxt = `CAMBIÓ A ${ultimo.tc} · ${ultimo.puesto}`;
+    }else if(salioReal){
+      estadoTxt = "SIN DATOS";
+    }
+    if(okReal && !ok && ultimo){
+      estadoTxt = `CAMBIÓ A ${ultimo.tc} · ${ultimo.puesto}`;
+    }
+
+    const ubicacion = ok ? obtenerUbicacionConexion(cx) : null;
+    const ubicacionHTML = ubicacion
+      ? `<br>Ubicación: <a class="puesto-map-link" href="https://www.google.com/maps?q=${ubicacion.lat},${ubicacion.lon}" target="_blank" rel="noopener">Ver mapa</a>`
+      : "";
+    const card = document.createElement("div");
+    const claseEstado = ok ? "ok" : (salioVisible ? "salio" : "off");
+    const claseTexto = ok ? "puesto-ok" : (salioVisible ? "puesto-salio" : "puesto-off");
+    const textoEstado = ok ? "✅ OK conectado" : (salioVisible ? "⚠️ Salió del puesto" : "❌ Sin conexión");
+    card.className = "puesto-card " + claseEstado;
+    card.innerHTML = `
+      <div class="puesto-title">${escaparHTML(item.tc)} · ${escaparHTML(item.puesto)}</div>
+      <div class="puesto-status ${claseTexto}">${textoEstado}</div>
+      <div class="puesto-meta">
+        Estado: ${escaparHTML(estadoTxt)}<br>
+        Usuario: ${escaparHTML(usuario)}${ubicacionHTML}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  estado.innerHTML = `ID ${escaparHTML(puestosIDActual)} · Puestos: ${lista.length} · Conectados: ${conectados} · Sin conexión: ${lista.length - conectados}` + (avisosSalida ? ` <span class="puestos-alerta">⚠️ Avisos de salida: ${avisosSalida}</span>` : "");
+}
+
+function engancharPuestos(id){
+  puestosIDActual = id || "";
+  puestosData = {};
+  puestosVistosConectados = {};
+  if(offPuestos){
+    try{ offPuestos(); }catch(e){}
+    offPuestos = null;
+  }
+
+  if(!id){
+    pintarPuestos();
+    return;
+  }
+
+  offPuestos = onValue(ref(db, `IDs/${id}/tramos`), snap=>{
+    puestosData = snap.val() || {};
+    pintarPuestos();
+  });
+}
+
+window.refrescarPuestos = function(){
+  const id = $("selectorID_PUESTOS")?.value || puestosIDActual || currentID || "";
+  if(id) engancharPuestos(id);
+  else pintarPuestos();
+};
 
 /* ================= TIEMPOS UI ================= */
 function obtenerListaTCs(){

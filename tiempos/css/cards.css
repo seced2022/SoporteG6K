@@ -1,1 +1,129 @@
+.section-title{
 
+    color:#00ff66;
+
+    margin:40px 30px 20px;
+
+    font-size:20px;
+
+    letter-spacing:2px;
+
+}
+
+.event-card{
+
+    background:#181818;
+
+    margin:0 30px 40px;
+
+    border-radius:18px;
+
+    padding:28px;
+
+    border:1px solid #2b2b2b;
+
+    transition:.25s;
+
+}
+
+.event-card:hover{
+
+    border-color:#00ff66;
+
+}
+
+.event-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:flex-start;
+
+}
+
+.event-header h2{
+
+    font-size:30px;
+
+    margin-bottom:8px;
+
+}
+
+.championship{
+
+    color:#9c9c9c;
+
+}
+
+.live-badge{
+
+    background:#00ff66;
+
+    color:#000;
+
+    padding:8px 16px;
+
+    border-radius:30px;
+
+    font-weight:bold;
+
+}
+
+.event-info{
+
+    display:flex;
+
+    gap:30px;
+
+    margin:28px 0;
+
+    color:#d0d0d0;
+
+}
+
+.leader-box{
+
+    background:#111;
+
+    border-radius:12px;
+
+    padding:18px;
+
+}
+
+.leader-box span{
+
+    color:#00ff66;
+
+    font-size:13px;
+
+}
+
+.leader-box h3{
+
+    margin-top:8px;
+
+}
+
+.follow-button{
+
+    margin-top:25px;
+
+    background:#00ff66;
+
+    color:black;
+
+    border:none;
+
+    padding:15px 28px;
+
+    border-radius:10px;
+
+    font-size:16px;
+
+    font-weight:bold;
+
+    cursor:pointer;
+
+}

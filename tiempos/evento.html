@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#050807">
+  <title>Evento | Heidegger Live</title>
+  <style>
+    :root{
+      --bg:#050807;
+      --panel:#0b100d;
+      --green:#00ff66;
+      --green-soft:rgba(0,255,102,.15);
+      --white:#ffffff;
+      --muted:#9ca9a1;
+      --line:rgba(0,255,102,.28);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{color-scheme:dark}
+    body{
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      background:radial-gradient(circle at 18% 0%,rgba(0,255,102,.08),transparent 34%),var(--bg);
+      color:var(--white);
+      font-family:Arial,Helvetica,sans-serif;
+    }
+    .site-header{
+      border-bottom:1px solid var(--line);
+      background:rgba(5,8,7,.94);
+      backdrop-filter:blur(10px);
+    }
+    .header-inner{
+      width:min(1180px,calc(100% - 32px));
+      min-height:122px;
+      margin:auto;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:24px;
+    }
+    .brand{display:flex;align-items:center;gap:22px;min-width:0}
+    .brand-logo{
+      width:auto;
+      height:82px;
+      display:block;
+      object-fit:contain;
+      filter:drop-shadow(0 0 12px rgba(0,255,102,.22));
+    }
+    .brand-live{
+      color:var(--white);
+      font-size:clamp(1.35rem,2.4vw,1.9rem);
+      font-weight:900;
+      letter-spacing:.18em;
+      line-height:1;
+    }
+    .online-status{
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      padding:10px 15px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:var(--green-soft);
+      color:var(--green);
+      font-size:.82rem;
+      font-weight:900;
+      letter-spacing:.12em;
+      white-space:nowrap;
+    }
+    .online-light{
+      width:11px;
+      height:11px;
+      border-radius:50%;
+      background:var(--green);
+      box-shadow:0 0 14px var(--green);
+    }
+    main{
+      width:min(1180px,calc(100% - 32px));
+      flex:1;
+      margin:0 auto;
+      padding:36px 0 60px;
+    }
+    .back-link{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      margin-bottom:28px;
+      color:var(--green);
+      font-weight:800;
+      text-decoration:none;
+    }
+    .back-link:hover{text-decoration:underline}
+    .event-panel{
+      padding:clamp(26px,5vw,48px);
+      border:1px solid var(--line);
+      border-radius:20px;
+      background:linear-gradient(145deg,rgba(0,255,102,.07),transparent 46%),var(--panel);
+    }
+    .event-status{
+      display:inline-flex;
+      padding:8px 12px;
+      border-radius:999px;
+      background:var(--green);
+      color:#001a0a;
+      font-size:.72rem;
+      font-weight:900;
+      letter-spacing:.09em;
+    }
+    .event-title{
+      margin-top:24px;
+      font-size:clamp(2rem,6vw,4rem);
+      line-height:1.05;
+    }
+    .event-subtitle{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:clamp(1rem,2vw,1.2rem);
+      line-height:1.6;
+    }
+    .placeholder{
+      margin-top:34px;
+      padding:22px;
+      border:1px dashed var(--line);
+      border-radius:14px;
+      background:rgba(0,255,102,.035);
+      color:#dce5df;
+      line-height:1.65;
+    }
+    .site-footer{border-top:1px solid var(--line);background:#040605}
+    .footer-inner{
+      width:min(1180px,calc(100% - 32px));
+      min-height:78px;
+      margin:auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:var(--muted);
+      font-size:.9rem;
+      letter-spacing:.04em;
+      text-align:center;
+    }
+    .footer-inner strong{color:var(--green)}
+    @media(max-width:760px){
+      .header-inner{min-height:102px}
+      .brand-logo{height:66px}
+      .brand-live{font-size:1.12rem}
+      .online-status{padding:9px 11px;font-size:.7rem}
+      main{padding-top:28px}
+    }
+    @media(max-width:440px){
+      .header-inner,main,.footer-inner{width:min(100% - 22px,1180px)}
+      .header-inner{gap:12px}
+      .brand{gap:12px}
+      .brand-logo{height:54px}
+      .brand-live{font-size:.96rem}
+      .online-status{gap:6px;padding:8px 9px}
+      .online-light{width:9px;height:9px}
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand">
+        <img class="brand-logo" src="../heideggerRACE.png" alt="Logotipo Heidegger" onerror="this.style.display='none'">
+        <span class="brand-live">LIVE</span>
+      </div>
+      <div class="online-status" aria-label="Sistema online">
+        <span class="online-light"></span>
+        ONLINE
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <a class="back-link" href="index.html">← Volver a eventos</a>
+
+    <section class="event-panel">
+      <span class="event-status" id="eventStatus">EN DIRECTO</span>
+      <h1 class="event-title" id="eventTitle">Rally Ciudad de Bailén</h1>
+      <p class="event-subtitle" id="eventSubtitle">Campeonato de Andalucía de Rallyes</p>
+
+      <div class="placeholder">
+        La entrada al evento ya está funcionando. En el siguiente paso colocaremos aquí
+        la información de tiempos, tramos, clasificación y participantes.
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span><strong>G6K®</strong> Innovación Electrónica</span>
+    </div>
+  </footer>
+
+  <script>
+    const eventos = {
+      "rally-ciudad-bailen": {
+        titulo: "Rally Ciudad de Bailén",
+        subtitulo: "Campeonato de Andalucía de Rallyes",
+        estado: "EN DIRECTO"
+      },
+      "rally-sierra-morena": {
+        titulo: "Rally Sierra Morena",
+        subtitulo: "Próxima prueba publicada en Soporte G6K",
+        estado: "PRÓXIMAMENTE"
+      }
+    };
+
+    const parametros = new URLSearchParams(window.location.search);
+    const idEvento = parametros.get("evento");
+    const evento = eventos[idEvento] || eventos["rally-ciudad-bailen"];
+
+    document.getElementById("eventTitle").textContent = evento.titulo;
+    document.getElementById("eventSubtitle").textContent = evento.subtitulo;
+    document.getElementById("eventStatus").textContent = evento.estado;
+    document.title = evento.titulo + " | Heidegger Live";
+  </script>
+</body>
+</html>

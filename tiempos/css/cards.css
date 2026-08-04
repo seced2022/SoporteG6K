@@ -127,3 +127,43 @@
     cursor:pointer;
 
 }
+
+.section-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin:40px 30px 20px;
+
+}
+
+.section-header h2{
+
+    color:#ffffff;
+
+    font-size:28px;
+
+}
+
+.section-header span{
+
+    color:#00ff66;
+
+    font-weight:bold;
+
+}
+
+#eventosGrid{
+
+    display:grid;
+
+    grid-template-columns:repeat(auto-fit,minmax(420px,1fr));
+
+    gap:25px;
+
+    padding:0 30px 40px;
+
+}

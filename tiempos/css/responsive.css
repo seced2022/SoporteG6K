@@ -1,1 +1,93 @@
+/* =====================================================
+   Heidegger Live - responsive.css
+   Versión 0.1.0
+===================================================== */
+
+@media (max-width:1100px){
+
+    .top-bar{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    .live-info{
+        text-align:left;
+        width:100%;
+    }
+
+    #eventosGrid,
+    #proximosGrid,
+    #resultadosGrid{
+        grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+    }
+
+}
+
+@media (max-width:768px){
+
+    #headerPrincipal{
+        padding:22px;
+    }
+
+    .brand h1{
+        font-size:32px;
+    }
+
+    .hero h2{
+        font-size:38px;
+    }
+
+    .hero p{
+        font-size:17px;
+    }
+
+    .section-header{
+        padding:20px;
+        flex-direction:column;
+        align-items:flex-start;
+        gap:8px;
+    }
+
+    #eventosGrid,
+    #proximosGrid,
+    #resultadosGrid{
+        padding:0 20px 30px;
+        grid-template-columns:1fr;
+    }
+
+    .event-info{
+        grid-template-columns:1fr;
+    }
+
+}
+
+@media (max-width:480px){
+
+    .brand h1{
+        font-size:28px;
+        letter-spacing:1px;
+    }
+
+    #clock{
+        font-size:22px;
+    }
+
+    .hero h2{
+        font-size:30px;
+    }
+
+    .event-title{
+        font-size:22px;
+    }
+
+    .live-badge{
+        font-size:11px;
+        padding:6px 10px;
+    }
+
+    .follow-button{
+        padding:14px;
+    }
+
+}
 

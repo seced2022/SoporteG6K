@@ -1,169 +1,109 @@
-.section-title{
+/* =====================================================
+   Heidegger Live - cards.css
+   Versión 0.1.0
+===================================================== */
 
-    color:#00ff66;
-
-    margin:40px 30px 20px;
-
-    font-size:20px;
-
-    letter-spacing:2px;
-
+#eventosGrid,
+#proximosGrid,
+#resultadosGrid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(360px,1fr));
+    gap:24px;
+    padding:0 30px 40px;
 }
 
 .event-card{
-
     background:#181818;
-
-    margin:0 30px 40px;
-
-    border-radius:18px;
-
-    padding:28px;
-
     border:1px solid #2b2b2b;
-
+    border-radius:18px;
+    padding:24px;
     transition:.25s;
-
+    position:relative;
+    overflow:hidden;
 }
 
 .event-card:hover{
-
+    transform:translateY(-4px);
     border-color:#00ff66;
-
+    box-shadow:0 10px 30px rgba(0,255,102,.15);
 }
 
 .event-header{
-
     display:flex;
-
     justify-content:space-between;
-
+    gap:15px;
     align-items:flex-start;
-
 }
 
-.event-header h2{
-
-    font-size:30px;
-
-    margin-bottom:8px;
-
+.event-title{
+    font-size:28px;
+    margin-bottom:6px;
 }
 
 .championship{
-
-    color:#9c9c9c;
-
+    color:#bcbcbc;
+    font-size:14px;
 }
 
 .live-badge{
-
     background:#00ff66;
-
     color:#000;
-
-    padding:8px 16px;
-
-    border-radius:30px;
-
+    padding:8px 14px;
+    border-radius:999px;
+    font-size:13px;
     font-weight:bold;
-
 }
 
 .event-info{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin:24px 0;
+}
 
-    display:flex;
+.info-box{
+    background:#111;
+    border:1px solid #2a2a2a;
+    border-radius:12px;
+    padding:12px;
+}
 
-    gap:30px;
+.info-label{
+    color:#8d8d8d;
+    font-size:12px;
+    text-transform:uppercase;
+}
 
-    margin:28px 0;
-
-    color:#d0d0d0;
-
+.info-value{
+    margin-top:6px;
+    font-weight:bold;
 }
 
 .leader-box{
-
-    background:#111;
-
+    background:#101010;
+    border-left:4px solid #00ff66;
+    padding:16px;
     border-radius:12px;
-
-    padding:18px;
-
-}
-
-.leader-box span{
-
-    color:#00ff66;
-
-    font-size:13px;
-
+    margin-top:10px;
 }
 
 .leader-box h3{
-
-    margin-top:8px;
-
+    margin:8px 0 4px;
 }
 
 .follow-button{
-
-    margin-top:25px;
-
-    background:#00ff66;
-
-    color:black;
-
+    width:100%;
+    margin-top:22px;
     border:none;
-
-    padding:15px 28px;
-
-    border-radius:10px;
-
-    font-size:16px;
-
-    font-weight:bold;
-
+    background:#00ff66;
+    color:#000;
+    padding:16px;
+    border-radius:12px;
     cursor:pointer;
-
-}
-
-.section-header{
-
-    display:flex;
-
-    justify-content:space-between;
-
-    align-items:center;
-
-    margin:40px 30px 20px;
-
-}
-
-.section-header h2{
-
-    color:#ffffff;
-
-    font-size:28px;
-
-}
-
-.section-header span{
-
-    color:#00ff66;
-
+    font-size:16px;
     font-weight:bold;
-
 }
 
-#eventosGrid{
-
-    display:grid;
-
-    grid-template-columns:repeat(auto-fit,minmax(420px,1fr));
-
-    gap:25px;
-
-    padding:0 30px 40px;
-
+.follow-button:hover{
+    filter:brightness(1.05);
 }

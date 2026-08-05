@@ -5,18 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#050807">
   <title>Evento | Heidegger Live</title>
+
   <style>
     :root{
       --bg:#050807;
       --panel:#0b100d;
+      --panel-2:#0f1712;
       --green:#00ff66;
-      --green-soft:rgba(0,255,102,.15);
+      --green-soft:rgba(0,255,102,.12);
       --white:#ffffff;
       --muted:#9ca9a1;
       --line:rgba(0,255,102,.28);
+      --yellow:#ffd84d;
     }
+
     *{box-sizing:border-box;margin:0;padding:0}
     html{color-scheme:dark}
+
     body{
       min-height:100vh;
       display:flex;
@@ -25,11 +30,13 @@
       color:var(--white);
       font-family:Arial,Helvetica,sans-serif;
     }
+
     .site-header{
       border-bottom:1px solid var(--line);
       background:rgba(5,8,7,.94);
       backdrop-filter:blur(10px);
     }
+
     .header-inner{
       width:min(1180px,calc(100% - 32px));
       min-height:122px;
@@ -39,7 +46,9 @@
       justify-content:space-between;
       gap:24px;
     }
+
     .brand{display:flex;align-items:center;gap:22px;min-width:0}
+
     .brand-logo{
       width:auto;
       height:82px;
@@ -47,6 +56,7 @@
       object-fit:contain;
       filter:drop-shadow(0 0 12px rgba(0,255,102,.22));
     }
+
     .brand-live{
       color:var(--white);
       font-size:clamp(1.35rem,2.4vw,1.9rem);
@@ -54,6 +64,7 @@
       letter-spacing:.18em;
       line-height:1;
     }
+
     .online-status{
       display:inline-flex;
       align-items:center;
@@ -68,6 +79,7 @@
       letter-spacing:.12em;
       white-space:nowrap;
     }
+
     .online-light{
       width:11px;
       height:11px;
@@ -75,28 +87,41 @@
       background:var(--green);
       box-shadow:0 0 14px var(--green);
     }
+
     main{
       width:min(1180px,calc(100% - 32px));
       flex:1;
       margin:0 auto;
-      padding:36px 0 60px;
+      padding:32px 0 60px;
     }
+
     .back-link{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      margin-bottom:28px;
+      margin-bottom:24px;
       color:var(--green);
       font-weight:800;
       text-decoration:none;
     }
+
     .back-link:hover{text-decoration:underline}
-    .event-panel{
-      padding:clamp(26px,5vw,48px);
+
+    .event-head{
+      padding:clamp(24px,4vw,38px);
       border:1px solid var(--line);
       border-radius:20px;
-      background:linear-gradient(145deg,rgba(0,255,102,.07),transparent 46%),var(--panel);
+      background:linear-gradient(145deg,rgba(0,255,102,.07),transparent 50%),var(--panel);
     }
+
+    .event-head-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:18px;
+      flex-wrap:wrap;
+    }
+
     .event-status{
       display:inline-flex;
       padding:8px 12px;
@@ -107,27 +132,172 @@
       font-weight:900;
       letter-spacing:.09em;
     }
+
+    .event-update{color:var(--muted);font-size:.85rem}
+
     .event-title{
-      margin-top:24px;
-      font-size:clamp(2rem,6vw,4rem);
+      margin-top:20px;
+      font-size:clamp(2rem,5vw,3.65rem);
       line-height:1.05;
     }
+
     .event-subtitle{
-      margin-top:14px;
+      margin-top:10px;
       color:var(--muted);
-      font-size:clamp(1rem,2vw,1.2rem);
-      line-height:1.6;
+      font-size:clamp(1rem,2vw,1.18rem);
+      line-height:1.5;
     }
-    .placeholder{
-      margin-top:34px;
-      padding:22px;
-      border:1px dashed var(--line);
-      border-radius:14px;
+
+    .tabs{
+      display:flex;
+      gap:10px;
+      margin:26px 0 18px;
+      overflow-x:auto;
+      scrollbar-width:none;
+    }
+
+    .tabs::-webkit-scrollbar{display:none}
+
+    .tab-button{
+      min-height:46px;
+      padding:0 18px;
+      border:1px solid var(--line);
+      border-radius:11px;
+      background:var(--panel);
+      color:var(--white);
+      font:inherit;
+      font-size:.9rem;
+      font-weight:900;
+      letter-spacing:.04em;
+      white-space:nowrap;
+      cursor:pointer;
+    }
+
+    .tab-button.active{
+      border-color:var(--green);
+      background:var(--green);
+      color:#001a0a;
+    }
+
+    .tab-panel{display:none}
+    .tab-panel.active{display:block}
+
+    .section-card{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:var(--panel);
+      overflow:hidden;
+    }
+
+    .section-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:16px;
+      flex-wrap:wrap;
+      padding:20px 22px;
+      border-bottom:1px solid var(--line);
       background:rgba(0,255,102,.035);
-      color:#dce5df;
-      line-height:1.65;
     }
+
+    .section-title{font-size:1.12rem;letter-spacing:.04em}
+    .section-note{margin-top:5px;color:var(--muted);font-size:.84rem}
+
+    .stage-select{
+      min-height:40px;
+      padding:0 38px 0 12px;
+      border:1px solid var(--line);
+      border-radius:9px;
+      background:var(--panel-2);
+      color:var(--white);
+      font:inherit;
+      font-size:.88rem;
+      font-weight:700;
+    }
+
+    .table-wrap{width:100%;overflow-x:auto}
+
+    table{
+      width:100%;
+      min-width:900px;
+      border-collapse:collapse;
+    }
+
+    th,td{
+      padding:15px 14px;
+      border-bottom:1px solid rgba(255,255,255,.07);
+      text-align:left;
+      white-space:nowrap;
+    }
+
+    th{
+      color:var(--muted);
+      font-size:.72rem;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      background:#080d0a;
+    }
+
+    td{font-size:.9rem}
+    tbody tr:hover{background:rgba(0,255,102,.035)}
+    tbody tr:last-child td{border-bottom:0}
+
+    .position{width:54px;color:var(--green);font-size:1rem;font-weight:900}
+    .bib{font-weight:900}
+    .team-main{display:block;font-weight:800}
+    .team-co{display:block;margin-top:3px;color:var(--muted);font-size:.78rem}
+    .time{font-weight:900;font-variant-numeric:tabular-nums}
+    .gap{color:var(--muted);font-variant-numeric:tabular-nums}
+    .penalty{color:var(--yellow);font-weight:900;font-variant-numeric:tabular-nums}
+    .no-penalty{color:var(--muted)}
+
+    .penalties-card{
+      margin-top:24px;
+      border:1px solid rgba(255,216,77,.35);
+      border-radius:18px;
+      background:linear-gradient(145deg,rgba(255,216,77,.06),transparent 55%),var(--panel);
+      overflow:hidden;
+    }
+
+    .penalties-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding:20px 22px;
+      border-bottom:1px solid rgba(255,216,77,.25);
+    }
+
+    .penalties-title{color:var(--yellow);font-size:1.08rem}
+
+    .penalty-count{
+      padding:7px 10px;
+      border-radius:999px;
+      background:rgba(255,216,77,.12);
+      color:var(--yellow);
+      font-size:.76rem;
+      font-weight:900;
+    }
+
+    .penalty-list{list-style:none}
+
+    .penalty-item{
+      display:grid;
+      grid-template-columns:80px minmax(180px,1fr) minmax(220px,2fr) 110px;
+      gap:16px;
+      align-items:center;
+      padding:17px 22px;
+      border-bottom:1px solid rgba(255,255,255,.07);
+    }
+
+    .penalty-item:last-child{border-bottom:0}
+    .penalty-bib{color:var(--white);font-weight:900}
+    .penalty-driver{font-weight:800}
+    .penalty-reason{color:var(--muted);line-height:1.45}
+    .penalty-value{color:var(--yellow);font-weight:900;text-align:right}
+
     .site-footer{border-top:1px solid var(--line);background:#040605}
+
     .footer-inner{
       width:min(1180px,calc(100% - 32px));
       min-height:78px;
@@ -140,14 +310,19 @@
       letter-spacing:.04em;
       text-align:center;
     }
+
     .footer-inner strong{color:var(--green)}
+
     @media(max-width:760px){
       .header-inner{min-height:102px}
       .brand-logo{height:66px}
       .brand-live{font-size:1.12rem}
       .online-status{padding:9px 11px;font-size:.7rem}
-      main{padding-top:28px}
+      main{padding-top:26px}
+      .penalty-item{grid-template-columns:60px 1fr auto}
+      .penalty-reason{grid-column:2 / 4}
     }
+
     @media(max-width:440px){
       .header-inner,main,.footer-inner{width:min(100% - 22px,1180px)}
       .header-inner{gap:12px}
@@ -156,6 +331,8 @@
       .brand-live{font-size:.96rem}
       .online-status{gap:6px;padding:8px 9px}
       .online-light{width:9px;height:9px}
+      .section-header,.penalties-header{padding:17px}
+      .penalty-item{padding:16px 17px}
     }
   </style>
 </head>
@@ -166,6 +343,7 @@
         <img class="brand-logo" src="../heideggerRACE.png" alt="Logotipo Heidegger" onerror="this.style.display='none'">
         <span class="brand-live">LIVE</span>
       </div>
+
       <div class="online-status" aria-label="Sistema online">
         <span class="online-light"></span>
         ONLINE
@@ -176,15 +354,91 @@
   <main>
     <a class="back-link" href="index.html">← Volver a eventos</a>
 
-    <section class="event-panel">
-      <span class="event-status" id="eventStatus">EN DIRECTO</span>
+    <section class="event-head">
+      <div class="event-head-top">
+        <span class="event-status" id="eventStatus">EN DIRECTO</span>
+        <span class="event-update">Última actualización: 20:48</span>
+      </div>
+
       <h1 class="event-title" id="eventTitle">Rally Ciudad de Bailén</h1>
       <p class="event-subtitle" id="eventSubtitle">Campeonato de Andalucía de Rallyes</p>
+    </section>
 
-      <div class="placeholder">
-        La entrada al evento ya está funcionando. En el siguiente paso colocaremos aquí
-        la información de tiempos, tramos, clasificación y participantes.
+    <nav class="tabs" aria-label="Clasificaciones del evento">
+      <button class="tab-button active" type="button" data-tab="scratch">CLASIFICACIÓN SCRATCH</button>
+      <button class="tab-button" type="button" data-tab="tramos">CLASIFICACIÓN POR TRAMOS</button>
+    </nav>
+
+    <section class="tab-panel active" id="scratch">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Clasificación Scratch</h2>
+            <p class="section-note">Tiempos acumulados con las penalizaciones ya aplicadas.</p>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Pos.</th>
+                <th>Dorsal</th>
+                <th>Equipo</th>
+                <th>Vehículo</th>
+                <th>Clase</th>
+                <th>Tiempo</th>
+                <th>Penalización</th>
+                <th>Diferencia</th>
+              </tr>
+            </thead>
+            <tbody id="scratchBody"></tbody>
+          </table>
+        </div>
       </div>
+    </section>
+
+    <section class="tab-panel" id="tramos">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Clasificación por tramos</h2>
+            <p class="section-note">Selecciona el tramo para consultar su clasificación.</p>
+          </div>
+
+          <select class="stage-select" id="stageSelect" aria-label="Seleccionar tramo">
+            <option value="TC1">TC1 · El Rumblar</option>
+            <option value="TC2">TC2 · Sierra Morena</option>
+            <option value="TC3">TC3 · La Dehesilla</option>
+          </select>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Pos.</th>
+                <th>Dorsal</th>
+                <th>Equipo</th>
+                <th>Vehículo</th>
+                <th>Tiempo tramo</th>
+                <th>Penalización</th>
+                <th>Tiempo total</th>
+                <th>Diferencia</th>
+              </tr>
+            </thead>
+            <tbody id="stageBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="penalties-card" aria-labelledby="penaltiesTitle">
+      <div class="penalties-header">
+        <h2 class="penalties-title" id="penaltiesTitle">Penalizaciones del evento</h2>
+        <span class="penalty-count" id="penaltyCount">2 PENALIZACIONES</span>
+      </div>
+      <ul class="penalty-list" id="penaltyList"></ul>
     </section>
   </main>
 
@@ -208,6 +462,105 @@
       }
     };
 
+    const clasificacionScratch = [
+      {pos:1,dorsal:1,piloto:"Javier López",copiloto:"Marcos Ruiz",vehiculo:"Škoda Fabia RS Rally2",clase:"Rally2",tiempo:"38:42.518",penalizacion:"—",diferencia:"—"},
+      {pos:2,dorsal:4,piloto:"Carlos Medina",copiloto:"Álvaro Torres",vehiculo:"Citroën C3 Rally2",clase:"Rally2",tiempo:"38:49.104",penalizacion:"+00:10.000",diferencia:"+00:06.586"},
+      {pos:3,dorsal:8,piloto:"David Romero",copiloto:"Luis Cano",vehiculo:"Peugeot 208 Rally4",clase:"Rally4",tiempo:"40:03.771",penalizacion:"—",diferencia:"+01:21.253"},
+      {pos:4,dorsal:12,piloto:"Miguel Pérez",copiloto:"Sergio Lara",vehiculo:"Renault Clio Rally5",clase:"Rally5",tiempo:"41:18.332",penalizacion:"+00:05.000",diferencia:"+02:35.814"}
+    ];
+
+    const clasificacionesTramo = {
+      TC1: [
+        {pos:1,dorsal:1,piloto:"Javier López",copiloto:"Marcos Ruiz",vehiculo:"Škoda Fabia RS Rally2",tiempo:"12:36.208",penalizacion:"—",total:"12:36.208",diferencia:"—"},
+        {pos:2,dorsal:4,piloto:"Carlos Medina",copiloto:"Álvaro Torres",vehiculo:"Citroën C3 Rally2",tiempo:"12:39.414",penalizacion:"—",total:"12:39.414",diferencia:"+00:03.206"},
+        {pos:3,dorsal:8,piloto:"David Romero",copiloto:"Luis Cano",vehiculo:"Peugeot 208 Rally4",tiempo:"13:02.180",penalizacion:"—",total:"13:02.180",diferencia:"+00:25.972"},
+        {pos:4,dorsal:12,piloto:"Miguel Pérez",copiloto:"Sergio Lara",vehiculo:"Renault Clio Rally5",tiempo:"13:28.005",penalizacion:"+00:05.000",total:"13:33.005",diferencia:"+00:56.797"}
+      ],
+      TC2: [
+        {pos:1,dorsal:4,piloto:"Carlos Medina",copiloto:"Álvaro Torres",vehiculo:"Citroën C3 Rally2",tiempo:"12:48.901",penalizacion:"+00:10.000",total:"12:58.901",diferencia:"—"},
+        {pos:2,dorsal:1,piloto:"Javier López",copiloto:"Marcos Ruiz",vehiculo:"Škoda Fabia RS Rally2",tiempo:"12:51.333",penalizacion:"—",total:"12:51.333",diferencia:"+00:02.432"},
+        {pos:3,dorsal:8,piloto:"David Romero",copiloto:"Luis Cano",vehiculo:"Peugeot 208 Rally4",tiempo:"13:17.410",penalizacion:"—",total:"13:17.410",diferencia:"+00:28.509"},
+        {pos:4,dorsal:12,piloto:"Miguel Pérez",copiloto:"Sergio Lara",vehiculo:"Renault Clio Rally5",tiempo:"13:35.920",penalizacion:"—",total:"13:35.920",diferencia:"+00:47.019"}
+      ],
+      TC3: [
+        {pos:1,dorsal:1,piloto:"Javier López",copiloto:"Marcos Ruiz",vehiculo:"Škoda Fabia RS Rally2",tiempo:"13:14.977",penalizacion:"—",total:"13:14.977",diferencia:"—"},
+        {pos:2,dorsal:4,piloto:"Carlos Medina",copiloto:"Álvaro Torres",vehiculo:"Citroën C3 Rally2",tiempo:"13:20.789",penalizacion:"—",total:"13:20.789",diferencia:"+00:05.812"},
+        {pos:3,dorsal:8,piloto:"David Romero",copiloto:"Luis Cano",vehiculo:"Peugeot 208 Rally4",tiempo:"13:44.181",penalizacion:"—",total:"13:44.181",diferencia:"+00:29.204"},
+        {pos:4,dorsal:12,piloto:"Miguel Pérez",copiloto:"Sergio Lara",vehiculo:"Renault Clio Rally5",tiempo:"14:14.407",penalizacion:"—",total:"14:14.407",diferencia:"+00:59.430"}
+      ]
+    };
+
+    const penalizaciones = [
+      {dorsal:4,piloto:"Carlos Medina",motivo:"Salida adelantada en TC2",valor:"+00:10.000"},
+      {dorsal:12,piloto:"Miguel Pérez",motivo:"Retraso en control horario TC1",valor:"+00:05.000"}
+    ];
+
+    function teamCell(item){
+      return `<span class="team-main">${item.piloto}</span><span class="team-co">${item.copiloto}</span>`;
+    }
+
+    function penaltyCell(value){
+      return value === "—" ? '<span class="no-penalty">—</span>' : `<span class="penalty">${value}</span>`;
+    }
+
+    function renderScratch(){
+      document.getElementById("scratchBody").innerHTML = clasificacionScratch.map(item => `
+        <tr>
+          <td class="position">${item.pos}</td>
+          <td class="bib">${item.dorsal}</td>
+          <td>${teamCell(item)}</td>
+          <td>${item.vehiculo}</td>
+          <td>${item.clase}</td>
+          <td class="time">${item.tiempo}</td>
+          <td>${penaltyCell(item.penalizacion)}</td>
+          <td class="gap">${item.diferencia}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderStage(stageId){
+      const rows = clasificacionesTramo[stageId] || [];
+      document.getElementById("stageBody").innerHTML = rows.map(item => `
+        <tr>
+          <td class="position">${item.pos}</td>
+          <td class="bib">${item.dorsal}</td>
+          <td>${teamCell(item)}</td>
+          <td>${item.vehiculo}</td>
+          <td class="time">${item.tiempo}</td>
+          <td>${penaltyCell(item.penalizacion)}</td>
+          <td class="time">${item.total}</td>
+          <td class="gap">${item.diferencia}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderPenalties(){
+      const list = document.getElementById("penaltyList");
+      const count = document.getElementById("penaltyCount");
+      count.textContent = `${penalizaciones.length} ${penalizaciones.length === 1 ? "PENALIZACIÓN" : "PENALIZACIONES"}`;
+      list.innerHTML = penalizaciones.map(item => `
+        <li class="penalty-item">
+          <span class="penalty-bib">N.º ${item.dorsal}</span>
+          <span class="penalty-driver">${item.piloto}</span>
+          <span class="penalty-reason">${item.motivo}</span>
+          <span class="penalty-value">${item.valor}</span>
+        </li>
+      `).join("");
+    }
+
+    document.querySelectorAll(".tab-button").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".tab-button").forEach(item => item.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(item => item.classList.remove("active"));
+        button.classList.add("active");
+        document.getElementById(button.dataset.tab).classList.add("active");
+      });
+    });
+
+    document.getElementById("stageSelect").addEventListener("change", event => {
+      renderStage(event.target.value);
+    });
+
     const parametros = new URLSearchParams(window.location.search);
     const idEvento = parametros.get("evento");
     const evento = eventos[idEvento] || eventos["rally-ciudad-bailen"];
@@ -216,6 +569,10 @@
     document.getElementById("eventSubtitle").textContent = evento.subtitulo;
     document.getElementById("eventStatus").textContent = evento.estado;
     document.title = evento.titulo + " | Heidegger Live";
+
+    renderScratch();
+    renderStage("TC1");
+    renderPenalties();
   </script>
 </body>
 </html>
